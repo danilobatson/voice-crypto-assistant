@@ -1,89 +1,126 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMCPClient, createOrchestrationPrompt, executeToolCalls } from '@/lib/mcp-client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
-// Use any for MCP tool types to avoid complex Zod type issues
+interface ToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+  reason: string;
+}
+
 interface ToolResult {
-  success: boolean;
   tool: string;
   args: Record<string, unknown>;
   reason: string;
   result?: unknown;
+  success: boolean;
   error?: string;
 }
 
-export async function POST(request: NextRequest) {
-  let client = null;
+// Initialize Gemini AI with server-side API key
+const getGeminiAI = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is required');
+  }
+  return new GoogleGenerativeAI(apiKey);
+};
+
+// Create MCP client using official SDK
+async function createMCPClient(apiKey: string): Promise<Client> {
+  console.log('🔄 Initializing MCP client with official SDK...');
   
-  try {
-    const { query } = await request.json();
-    
-    if (!query) {
-      return NextResponse.json({ error: 'Query is required' }, { status: 400 });
+  const transport = new SSEClientTransport(
+    new URL(`https://lunarcrush.ai/sse?key=${apiKey}`)
+  );
+
+  const client = new Client(
+    {
+      name: 'voice-crypto-assistant',
+      version: '1.0.0',
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
     }
+  );
 
-    // Extract crypto symbol from query
-    const cryptoMatch = query.toLowerCase().match(/\b(bitcoin|btc|ethereum|eth|solana|sol|cardano|ada|polkadot|dot|dogecoin|doge)\b/);
-    const symbol = cryptoMatch ? (cryptoMatch[1] === 'bitcoin' ? 'btc' : cryptoMatch[1] === 'ethereum' ? 'eth' : cryptoMatch[1] === 'solana' ? 'sol' : cryptoMatch[1]) : 'btc';
+  await client.connect(transport);
+  console.log('✅ MCP client connected successfully');
+  return client;
+}
 
-    // Get API keys
-    const lunarcrushApiKey = process.env.LUNARCRUSH_API_KEY || process.env.NEXT_PUBLIC_LUNARCRUSH_API_KEY;
-    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    
-    if (!lunarcrushApiKey || !geminiApiKey) {
-      throw new Error('API keys not found');
+// Create tool orchestration prompt for Gemini
+function createOrchestrationPrompt(symbol: string, availableTools: unknown[]): string {
+  return `
+You are a cryptocurrency analyst. I need you to analyze ${symbol.toUpperCase()} using the available LunarCrush MCP tools. Use a MAX of 4 tools to gather comprehensive data.
+
+AVAILABLE MCP TOOLS:
+${JSON.stringify(availableTools, null, 2)}
+
+TASK: Create a plan to gather comprehensive data for ${symbol.toUpperCase()} analysis.
+
+Based on the available tools, decide which tools to call and with what parameters to get:
+1. Current price and market data
+2. Social sentiment metrics  
+3. Historical performance data
+4. Ranking and positioning data
+
+Respond with a JSON array of tool calls in this exact format:
+[
+  {
+    "tool": "tool_name",
+    "args": {"param": "value"},
+    "reason": "Short reason why this tool call is needed"
+  }
+]
+
+Be specific with parameters. Focus on ${symbol.toUpperCase()} data.
+`;
+}
+
+// Execute MCP tool calls
+async function executeToolCalls(client: Client, toolCalls: ToolCall[]): Promise<ToolResult[]> {
+  const results: ToolResult[] = [];
+  
+  for (const toolCall of toolCalls) {
+    try {
+      console.log(`🛠️ Executing: ${toolCall.tool} - ${toolCall.reason}`);
+      
+      const result = await client.callTool({
+        name: toolCall.tool,
+        arguments: toolCall.args
+      });
+      
+      results.push({
+        tool: toolCall.tool,
+        args: toolCall.args,
+        reason: toolCall.reason,
+        result: result.content,
+        success: true
+      });
+      
+    } catch (error) {
+      console.error(`❌ Tool ${toolCall.tool} failed:`, error);
+      results.push({
+        tool: toolCall.tool,
+        args: toolCall.args,
+        reason: toolCall.reason,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        success: false
+      });
     }
+  }
+  
+  return results;
+}
 
-    // Create MCP client
-    client = await createMCPClient(lunarcrushApiKey);
-    
-    // Get available tools - use any to avoid complex MCP type issues
-    const { tools } = await client.listTools();
-    
-    // Convert tools to simple object for Gemini prompt
-    const toolsMap: Record<string, any> = {};
-    tools.forEach((tool: any) => {
-      toolsMap[tool.name] = {
-        name: tool.name,
-        description: tool.description || '',
-        inputSchema: tool.inputSchema || {}
-      };
-    });
-
-    // Initialize Gemini
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
-
-    // Step 1: Get tool orchestration plan
-    const orchestrationPrompt = createOrchestrationPrompt(symbol, toolsMap);
-    const orchestrationResponse = await model.generateContent(orchestrationPrompt);
-    const responseText = orchestrationResponse.response.text();
-    
-    // Extract tool calls
-    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-    let toolCalls = [];
-    
-    if (jsonMatch) {
-      try {
-        toolCalls = JSON.parse(jsonMatch[0]);
-      } catch (e) {
-        // Fallback tool call
-        toolCalls = [
-          {
-            tool: "LunarCrush MCP:Topic",
-            args: { topic: symbol },
-            reason: "Get basic crypto data and sentiment"
-          }
-        ];
-      }
-    }
-
-    // Step 2: Execute the tool calls
-    const toolResults: ToolResult[] = await executeToolCalls(client, toolCalls);
-
-    // Step 3: Generate final analysis with Gemini
-    const analysisPrompt = `
-You are a professional cryptocurrency analyst. Based on the following data from LunarCrush MCP tools, provide a comprehensive analysis for ${symbol.toUpperCase()}.
+// Create analysis prompt for Gemini
+function createAnalysisPrompt(query: string, toolResults: ToolResult[]): string {
+  return `
+You are an expert cryptocurrency analyst. Based on the user's query and the following real data from LunarCrush MCP tools, provide a comprehensive analysis.
 
 User Query: "${query}"
 
@@ -94,27 +131,93 @@ Please provide a natural, conversational response that:
 1. Answers the user's specific question
 2. Highlights key insights from the social data
 3. Mentions any notable trends or sentiment patterns
-4. Keeps the response suitable for voice synthesis (30-45 seconds when spoken)
-5. Uses a professional but conversational tone
+4. Uses a professional but conversational tone
+5. Is optimized for voice synthesis (natural speech patterns)
 
-Focus on the most interesting and actionable insights from the data.
+Focus on the most interesting and actionable insights from the data. Keep it concise but informative.
 `;
+}
 
+export async function POST(request: NextRequest) {
+  let client: Client | null = null;
+  
+  try {
+    console.time('MCP Analysis');
+    const { query } = await request.json();
+    
+    if (!query) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No query provided' 
+      }, { status: 400 });
+    }
+
+    console.log(`🚀 Starting MCP analysis for query: "${query}"`);
+
+    // Step 1: Create MCP client
+    const apiKey = process.env.LUNARCRUSH_API_KEY;
+    if (!apiKey) {
+      throw new Error('LUNARCRUSH_API_KEY environment variable not configured');
+    }
+
+    client = await createMCPClient(apiKey);
+    const genAI = getGeminiAI();
+    
+    // Use the correct Gemini model
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+
+    // Step 2: Discover available tools
+    console.log('🔄 Discovering MCP tools...');
+    const { tools } = await client.listTools();
+    console.log(`📋 Found ${tools.length} MCP tools`);
+
+    // Step 3: Let Gemini decide which tools to use
+    console.log('🧠 AI planning tool orchestration...');
+    const orchestrationPrompt = createOrchestrationPrompt(
+      query.includes('bitcoin') ? 'bitcoin' : 
+      query.includes('ethereum') ? 'ethereum' :
+      query.includes('solana') ? 'solana' : 'bitcoin',
+      tools
+    );
+
+    const orchestrationResponse = await model.generateContent(orchestrationPrompt);
+    const orchestrationText = orchestrationResponse.response.text();
+    
+    // Parse the JSON response
+    const toolCalls = JSON.parse(orchestrationText.replace(/```json|```/g, '').trim()) as ToolCall[];
+    console.log(`🎯 AI selected ${toolCalls.length} tools:`, toolCalls.map((t) => t.tool));
+
+    // Step 4: Execute tool calls
+    console.log('⚡ Executing MCP tools...');
+    const toolResults = await executeToolCalls(client, toolCalls);
+    const successfulResults = toolResults.filter(r => r.success);
+    console.log(`✅ ${successfulResults.length}/${toolResults.length} tools executed successfully`);
+
+    // Step 5: Generate AI analysis
+    console.log('🧠 Generating AI analysis...');
+    const analysisPrompt = createAnalysisPrompt(query, toolResults);
     const analysisResponse = await model.generateContent(analysisPrompt);
     const finalAnalysis = analysisResponse.response.text();
+
+    console.timeEnd('MCP Analysis');
 
     return NextResponse.json({
       success: true,
       query,
-      symbol: symbol.toUpperCase(),
       analysis: finalAnalysis,
       toolsUsed: toolCalls.length,
-      dataPoints: toolResults.filter((r: ToolResult) => r.success).length,
-      spokenResponse: finalAnalysis
+      dataPoints: successfulResults.length,
+      spokenResponse: finalAnalysis,
+      symbol: query.includes('bitcoin') ? 'BTC' : 
+              query.includes('ethereum') ? 'ETH' :
+              query.includes('solana') ? 'SOL' : 'BTC'
     });
 
   } catch (error) {
-    const fallbackResponse = `I apologize, but I'm having trouble analyzing the cryptocurrency data right now. Please try again in a moment, or ask about a specific cryptocurrency like Bitcoin or Ethereum.`;
+    console.error('❌ MCP Analysis failed:', error);
+    console.timeEnd('MCP Analysis');
+    
+    const fallbackResponse = `I apologize, but I'm having trouble connecting to the LunarCrush data right now. This could be due to API connectivity or rate limiting. Please try again in a moment.`;
     
     return NextResponse.json({
       success: false,
@@ -126,7 +229,8 @@ Focus on the most interesting and actionable insights from the data.
     if (client) {
       try {
         await client.close();
-      } catch (e) {
+        console.log('🔄 MCP client closed');
+      } catch {
         // Silent cleanup
       }
     }
