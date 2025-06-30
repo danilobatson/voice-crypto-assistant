@@ -4,103 +4,117 @@ import { useState, useCallback } from 'react';
 
 interface UseVoiceOutputReturn {
   isSpeaking: boolean;
-  speak: (text: string, options?: { voiceId?: string }) => Promise<void>;
+  speak: (text: string) => Promise<void>;
   stop: () => void;
   error: string | null;
 }
 
 export function useVoiceOutput(): UseVoiceOutputReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const speak = useCallback(async (text: string, options?: { voiceId?: string }) => {
+  const speak = useCallback(async (text: string) => {
     try {
       setError(null);
+      
+      // Check if speech synthesis is available
+      if (!('speechSynthesis' in window)) {
+        throw new Error('Speech synthesis not supported in this browser');
+      }
+
+      // Stop any current speech
+      if (currentUtterance) {
+        speechSynthesis.cancel();
+      }
+
       setIsSpeaking(true);
 
-      // Stop any currently playing audio
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.remove();
-      }
+      // Try AWS Polly first (if available), then fall back to browser synthesis
+      try {
+        const response = await fetch('/api/voice-synthesis', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text }),
+        });
 
-      // Try AWS Polly first
-      const response = await fetch('/api/voice-synthesis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text,
-          voiceId: options?.voiceId || 'Joanna'
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.audioUrl) {
-        // Use AWS Polly audio
-        const audio = new Audio(data.audioUrl);
-        setCurrentAudio(audio);
-
-        audio.onended = () => {
-          setIsSpeaking(false);
-          setCurrentAudio(null);
-        };
-
-        audio.onerror = () => {
-          setError('Failed to play AWS Polly audio');
-          setIsSpeaking(false);
-          setCurrentAudio(null);
-        };
-
-        await audio.play();
+        const data = await response.json();
         
-      } else if (data.useFallback) {
-        // Fallback to browser Speech Synthesis
-        console.log('Using browser speech synthesis fallback');
-        
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(text);
+        if (data.success && data.audioUrl) {
+          // Use AWS Polly audio
+          const audio = new Audio(data.audioUrl);
           
-          utterance.onend = () => {
+          audio.onended = () => {
             setIsSpeaking(false);
-          };
-          
-          utterance.onerror = () => {
-            setError('Browser speech synthesis failed');
-            setIsSpeaking(false);
+            setCurrentUtterance(null);
           };
 
-          window.speechSynthesis.speak(utterance);
-        } else {
-          throw new Error('Speech synthesis not supported in this browser');
+          audio.onerror = () => {
+            // Fall back to browser synthesis
+            useBrowserSynthesis(text);
+          };
+
+          await audio.play();
+          return;
         }
-      } else {
-        throw new Error(data.error || 'Voice synthesis failed');
+      } catch (awsError) {
+        // AWS Polly not available, fall back to browser synthesis
       }
+
+      // Use browser speech synthesis as fallback
+      useBrowserSynthesis(text);
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to synthesize speech');
+      setError(err instanceof Error ? err.message : 'Failed to speak text');
       setIsSpeaking(false);
     }
-  }, [currentAudio]);
+  }, [currentUtterance]);
+
+  const useBrowserSynthesis = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Configure voice settings
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // Try to use a high-quality voice
+    const voices = speechSynthesis.getVoices();
+    const preferredVoice = voices.find(voice => 
+      voice.name.includes('Premium') || 
+      voice.name.includes('Enhanced') ||
+      voice.name.includes('Google') ||
+      voice.lang.startsWith('en-US')
+    );
+    
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setCurrentUtterance(null);
+    };
+
+    utterance.onerror = (event) => {
+      setError(`Speech synthesis error: ${event.error}`);
+      setIsSpeaking(false);
+      setCurrentUtterance(null);
+    };
+
+    setCurrentUtterance(utterance);
+    speechSynthesis.speak(utterance);
+  };
 
   const stop = useCallback(() => {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.remove();
-      setCurrentAudio(null);
+    if (currentUtterance) {
+      speechSynthesis.cancel();
+      setCurrentUtterance(null);
     }
-    
-    // Stop browser speech synthesis
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    
     setIsSpeaking(false);
-  }, [currentAudio]);
+  }, [currentUtterance]);
 
   return {
     isSpeaking,
