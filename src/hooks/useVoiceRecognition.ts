@@ -1,22 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 interface UseVoiceRecognitionReturn {
   transcript: string;
   isListening: boolean;
   isMicrophoneAvailable: boolean;
-  isLoaded: boolean; // New: track if component is loaded client-side
   startListening: () => void;
   stopListening: () => void;
   resetTranscript: () => void;
   error: string | null;
 }
 
-export function useVoiceRecognition(onSpeechEnd?: (transcript: string) => void): UseVoiceRecognitionReturn {
+export function useVoiceRecognition(): UseVoiceRecognitionReturn {
   const [error, setError] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
   
   const {
     transcript,
@@ -26,51 +24,39 @@ export function useVoiceRecognition(onSpeechEnd?: (transcript: string) => void):
     isMicrophoneAvailable
   } = useSpeechRecognition();
 
-  // Mark as loaded on client side only
   useEffect(() => {
-    setIsLoaded(true);
-  }, []);
-
-  // Auto-process when speech ends
-  useEffect(() => {
-    if (!listening && transcript.trim() && onSpeechEnd && isLoaded) {
-      onSpeechEnd(transcript);
-    }
-  }, [listening, transcript, onSpeechEnd, isLoaded]);
-
-  useEffect(() => {
-    if (!isLoaded) return; // Don't check until client-side loaded
-    
     if (!browserSupportsSpeechRecognition) {
-      setError('Browser does not support speech recognition');
+      setError('Browser does not support speech recognition. Please use Chrome, Safari, or Edge.');
     } else if (!isMicrophoneAvailable) {
-      setError('Microphone is not available');
+      setError('Microphone is not available. Please check your permissions.');
     } else {
       setError(null);
     }
-  }, [browserSupportsSpeechRecognition, isMicrophoneAvailable, isLoaded]);
+  }, [browserSupportsSpeechRecognition, isMicrophoneAvailable]);
 
   const startListening = useCallback(() => {
-    if (!isLoaded) return;
-    
     setError(null);
-    resetTranscript();
+    
+    if (!browserSupportsSpeechRecognition) {
+      setError('Speech recognition is not supported in this browser');
+      return;
+    }
+    
     SpeechRecognition.startListening({
-      continuous: false,
+      continuous: true, // Keep listening for continuous speech
       language: 'en-US',
+      interimResults: true, // Show interim results
     });
-  }, [resetTranscript, isLoaded]);
+  }, [browserSupportsSpeechRecognition]);
 
   const stopListening = useCallback(() => {
-    if (!isLoaded) return;
     SpeechRecognition.stopListening();
-  }, [isLoaded]);
+  }, []);
 
   return {
     transcript,
     isListening: listening,
-    isMicrophoneAvailable: isLoaded ? (isMicrophoneAvailable && browserSupportsSpeechRecognition) : false,
-    isLoaded,
+    isMicrophoneAvailable: isMicrophoneAvailable && browserSupportsSpeechRecognition,
     startListening,
     stopListening,
     resetTranscript,

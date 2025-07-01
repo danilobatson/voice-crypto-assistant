@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
+import type { Metadata } from 'next';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
+import theme from '@/lib/theme';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "Voice Crypto Assistant",
-  description: "AI-powered cryptocurrency analysis with voice interface",
+  title: 'Voice Crypto Assistant',
+  description: 'AI-powered cryptocurrency analysis with voice interface',
 };
 
 export default function RootLayout({
@@ -16,11 +17,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <script src="https://unpkg.com/regenerator-runtime@0.13.9/runtime.js"></script>
-      </head>
-      <body className={inter.className}>
-        {children}
+      <body>
+        <AppRouterCacheProvider>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            {children}
+          </ThemeProvider>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );

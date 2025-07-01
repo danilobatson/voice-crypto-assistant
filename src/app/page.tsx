@@ -1,20 +1,21 @@
-import { VoiceAPITest } from '@/components/VoiceAPITest';
+import { Container, Box } from '@mui/material';
+import { VoiceAssistant } from '@/components/VoiceAssistant';
+import { HeroSection } from '@/components/HeroSection';
+import { Footer } from '@/components/Footer';
 
 export default function Home() {
   return (
-    <div className="container">
-      <h1 className="title">🎤 Voice Crypto Assistant</h1>
-      <p className="subtitle">
-        AI-powered cryptocurrency analysis with voice interface
-        <br />
-        Powered by Google Gemini AI and LunarCrush real-time data
-      </p>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* Hero Section */}
+      <HeroSection />
       
-      <VoiceAPITest />
+      {/* Main Application */}
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <VoiceAssistant />
+      </Container>
       
-      <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.875rem', color: '#6c757d' }}>
-        Built with Next.js, TypeScript, Google Gemini, and LunarCrush MCP
-      </div>
-    </div>
+      {/* Footer */}
+      <Footer />
+    </Box>
   );
 }

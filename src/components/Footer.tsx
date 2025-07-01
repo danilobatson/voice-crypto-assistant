@@ -1,163 +1,161 @@
 'use client';
 
 import {
+  Box,
   Container,
-  Group,
-  Stack,
-  Text,
-  Anchor,
+  Grid,
+  Typography,
+  Link,
+  IconButton,
   Divider,
-  Badge,
-  Button,
-  Box
-} from '@mantine/core';
+} from '@mui/material';
 import {
-  IconBrandGithub,
-  IconBrandTwitter,
-  IconBrandLinkedin,
-  IconWorld,
-  IconRocket,
-  IconBrain,
-  IconMicrophone,
-  IconChartLine
-} from '@tabler/icons-react';
+  GitHub,
+  LinkedIn,
+  Email,
+  OpenInNew,
+} from '@mui/icons-material';
 
 export function Footer() {
+  const techLinks = [
+    { name: 'Next.js 14', url: 'https://nextjs.org' },
+    { name: 'Google Gemini AI', url: 'https://ai.google.dev' },
+    { name: 'LunarCrush MCP', url: 'https://lunarcrush.com' },
+    { name: 'Material-UI', url: 'https://mui.com' },
+  ];
+
+  const portfolioLinks = [
+    { name: 'Portfolio Website', url: 'https://danilobatson.github.io' },
+    { name: 'Resume', url: 'https://rxresu.me/danilobatson/danilo-batson-resume' },
+    { name: 'Source Code', url: 'https://github.com/danilobatson/voice-crypto-assistant' },
+  ];
+
   return (
-    <Box bg="gray.9" c="white" py="xl" mt="auto">
-      <Container size="lg">
-        <Stack gap="xl">
-          {/* Main Footer Content */}
-          <Group justify="space-between" align="flex-start" wrap="wrap">
-            {/* Brand Section */}
-            <Stack gap="md" style={{ flex: '1 1 300px' }}>
-              <Group gap="sm">
-                <IconMicrophone size={24} color="#228be6" />
-                <Text size="xl" fw={700}>Voice Crypto Assistant</Text>
-              </Group>
-              <Text size="sm" c="gray.4" maw={300}>
-                AI-powered voice crypto analysis using real-time social sentiment data from LunarCrush MCP and Google Gemini AI.
-              </Text>
-              <Group gap="sm">
-                <Badge color="blue" variant="light" leftSection={<IconBrain size={12} />}>
-                  AI Powered
-                </Badge>
-                <Badge color="green" variant="light" leftSection={<IconChartLine size={12} />}>
-                  Real-time Data
-                </Badge>
-                <Badge color="orange" variant="light" leftSection={<IconMicrophone size={12} />}>
-                  Voice UI
-                </Badge>
-              </Group>
-            </Stack>
-
-            {/* Links Section */}
-            <Stack gap="md" style={{ flex: '1 1 200px' }}>
-              <Text size="sm" fw={600} c="white">Resources</Text>
-              <Stack gap="xs">
-                <Anchor href="https://lunarcrush.com/developers/api" target="_blank" c="gray.4" size="sm">
-                  LunarCrush API
-                </Anchor>
-                <Anchor href="https://ai.google.dev/" target="_blank" c="gray.4" size="sm">
-                  Google Gemini AI
-                </Anchor>
-                <Anchor href="https://docs.anthropic.com/en/docs/build-with-claude/mcp" target="_blank" c="gray.4" size="sm">
-                  Model Context Protocol
-                </Anchor>
-                <Anchor href="https://mantine.dev/" target="_blank" c="gray.4" size="sm">
-                  Mantine UI
-                </Anchor>
-              </Stack>
-            </Stack>
-
-            {/* Tech Stack */}
-            <Stack gap="md" style={{ flex: '1 1 200px' }}>
-              <Text size="sm" fw={600} c="white">Built With</Text>
-              <Stack gap="xs">
-                <Text size="sm" c="gray.4">Next.js 14 + TypeScript</Text>
-                <Text size="sm" c="gray.4">LunarCrush MCP</Text>
-                <Text size="sm" c="gray.4">Google Gemini AI</Text>
-                <Text size="sm" c="gray.4">Mantine UI</Text>
-                <Text size="sm" c="gray.4">Browser Speech APIs</Text>
-              </Stack>
-            </Stack>
-
-            {/* Call to Action */}
-            <Stack gap="md" style={{ flex: '1 1 200px' }}>
-              <Text size="sm" fw={600} c="white">Get Started</Text>
-              <Button
-                component="a"
-                href="https://lunarcrush.com/developers"
+    <Box component="footer" sx={{ bgcolor: 'grey.900', color: 'grey.300' }}>
+      <Container maxWidth="lg" sx={{ py: 6 }}>
+        <Grid container spacing={4}>
+          {/* Project Info */}
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+              Voice Crypto Assistant
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, maxWidth: 400 }}>
+              A sophisticated voice-activated cryptocurrency analysis assistant that combines 
+              Google Gemini AI, LunarCrush social data, and modern web technologies.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton 
+                component={Link}
+                href="https://github.com/danilobatson" 
                 target="_blank"
-                color="blue"
-                leftSection={<IconRocket size={16} />}
-                size="sm"
+                sx={{ color: 'grey.400', '&:hover': { color: 'white' } }}
               >
-                Try LunarCrush API
-              </Button>
-              <Group gap="xs">
-                <Button
-                  component="a"
-                  href="https://github.com/danilobatson"
+                <GitHub />
+              </IconButton>
+              <IconButton 
+                component={Link}
+                href="https://linkedin.com/in/danilo-batson" 
+                target="_blank"
+                sx={{ color: 'grey.400', '&:hover': { color: 'white' } }}
+              >
+                <LinkedIn />
+              </IconButton>
+              <IconButton 
+                component={Link}
+                href="mailto:djbatson19@gmail.com"
+                sx={{ color: 'grey.400', '&:hover': { color: 'white' } }}
+              >
+                <Email />
+              </IconButton>
+            </Box>
+          </Grid>
+          
+          {/* Technology Stack */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+              Technology
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {techLinks.map((tech) => (
+                <Link
+                  key={tech.name}
+                  href={tech.url}
                   target="_blank"
-                  variant="subtle"
-                  color="gray"
-                  size="xs"
-                  leftSection={<IconBrandGithub size={16} />}
+                  sx={{ 
+                    color: 'grey.400', 
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    '&:hover': { color: 'white' },
+                    fontSize: '0.875rem'
+                  }}
                 >
-                  GitHub
-                </Button>
-                <Button
-                  component="a"
-                  href="https://danilobatson.github.io"
+                  {tech.name}
+                  <OpenInNew sx={{ fontSize: 12 }} />
+                </Link>
+              ))}
+            </Box>
+          </Grid>
+          
+          {/* Portfolio Links */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+              Portfolio
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {portfolioLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.url}
                   target="_blank"
-                  variant="subtle"
-                  color="gray"
-                  size="xs"
-                  leftSection={<IconWorld size={16} />}
+                  sx={{ 
+                    color: 'grey.400', 
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    '&:hover': { color: 'white' },
+                    fontSize: '0.875rem'
+                  }}
                 >
-                  Portfolio
-                </Button>
-              </Group>
-            </Stack>
-          </Group>
-
-          <Divider color="gray.7" />
-
-          {/* Bottom Section */}
-          <Group justify="space-between" align="center" wrap="wrap">
-            <Group gap="lg">
-              <Text size="xs" c="gray.5">
-                © 2025 Voice Crypto Assistant. Built for learning and portfolio demonstration.
-              </Text>
-              <Group gap="sm">
-                <Text size="xs" c="gray.6">Powered by:</Text>
-                <Anchor href="https://lunarcrush.com" target="_blank" size="xs" c="blue.4">
-                  LunarCrush
-                </Anchor>
-                <Text size="xs" c="gray.6">•</Text>
-                <Anchor href="https://ai.google.dev" target="_blank" size="xs" c="blue.4">
-                  Google AI
-                </Anchor>
-              </Group>
-            </Group>
-
-            <Group gap="sm">
-              <Anchor href="https://github.com/danilobatson" target="_blank" c="gray.5">
-                <IconBrandGithub size={18} />
-              </Anchor>
-              <Anchor href="https://linkedin.com/in/danilo-batson" target="_blank" c="gray.5">
-                <IconBrandLinkedin size={18} />
-              </Anchor>
-              <Text size="xs" c="gray.6">
-                Built by{' '}
-                <Anchor href="https://danilobatson.github.io" target="_blank" c="blue.4">
-                  Danilo Batson
-                </Anchor>
-              </Text>
-            </Group>
-          </Group>
-        </Stack>
+                  {link.name}
+                  <OpenInNew sx={{ fontSize: 12 }} />
+                </Link>
+              ))}
+            </Box>
+          </Grid>
+        </Grid>
+        
+        {/* Bottom Bar */}
+        <Divider sx={{ my: 3, bgcolor: 'grey.800' }} />
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' },
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Typography variant="body2" sx={{ color: 'grey.400' }}>
+            © 2024 Danilo Batson. Built with Next.js, Google Gemini AI, and LunarCrush MCP.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 3 }}>
+            <Link
+              href="https://github.com/danilobatson/voice-crypto-assistant" 
+              target="_blank"
+              sx={{ color: 'grey.400', textDecoration: 'none', '&:hover': { color: 'white' }, fontSize: '0.875rem' }}
+            >
+              View Source
+            </Link>
+            <Link
+              href="https://lunarcrush.com/developers" 
+              target="_blank"
+              sx={{ color: 'grey.400', textDecoration: 'none', '&:hover': { color: 'white' }, fontSize: '0.875rem' }}
+            >
+              API Documentation
+            </Link>
+          </Box>
+        </Box>
       </Container>
     </Box>
   );
