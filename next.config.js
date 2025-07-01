@@ -7,10 +7,13 @@ const nextConfig = {
 	experimental: {
 		esmExternals: true,
 	},
+	// Optimizations for AWS Amplify
+	trailingSlash: false,
+	// Environment variables
 	env: {
 		CUSTOM_KEY: process.env.CUSTOM_KEY,
 	},
-	// Disable TypeScript and ESLint checking during build
+	// Disable TypeScript and ESLint checking during build for faster deploys
 	typescript: {
 		ignoreBuildErrors: true,
 	},
