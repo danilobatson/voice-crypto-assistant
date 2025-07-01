@@ -11,7 +11,6 @@ frontend:
         - node --version
         - npm --version
         - npm ci
-        - npm install --save-dev typescript @types/node eslint
         - npx next telemetry disable
     build:
       commands:
