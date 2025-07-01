@@ -110,7 +110,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 
 	// Format all the metrics using our utility functions for better readability
 	const formattedMetrics = {
-		price: formatCurrency(data.data.key_metrics.price),
+		price: `$${data.data.key_metrics.price}`,
 		marketCap: formatCurrency(data.data.key_metrics.market_cap),
 		volume24h: formatCurrency(data.data.key_metrics.volume_24h),
 		galaxyScore: data.data.key_metrics.galaxy_score,
