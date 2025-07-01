@@ -29,12 +29,12 @@ This Voice Crypto Assistant demonstrates the power of **Model Context Protocol (
 
 ### 🚀 **Voice + MCP Protocol Advantages**
 
-| Traditional Crypto Research         | Voice Crypto Assistant                       |
-| ----------------------------------- | -------------------------------------------- |
-| Type queries → wait → read results | Speak question → instant AI analysis        |
-| Multiple tabs and interfaces       | Single voice conversation                    |
-| Manual data correlation             | AI-driven insight synthesis                  |
-| Static analysis snapshots          | Real-time sentiment + technical analysis    |
+| Traditional Crypto Research        | Voice Crypto Assistant                         |
+| ---------------------------------- | ---------------------------------------------- |
+| Type queries → wait → read results | Speak question → instant AI analysis           |
+| Multiple tabs and interfaces       | Single voice conversation                      |
+| Manual data correlation            | AI-driven insight synthesis                    |
+| Static analysis snapshots          | Real-time sentiment + technical analysis       |
 | 15+ clicks for comprehensive data  | 1 voice command with intelligent orchestration |
 
 **Result:** 90% faster research, 70% better retention, hands-free operation
@@ -132,7 +132,7 @@ Google's Gemini AI powers both voice understanding and intelligent crypto analys
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-**💡 Why Gemini?** 
+**💡 Why Gemini?**
 - Excellent voice-to-text capabilities
 - Advanced reasoning for financial analysis
 - Structured JSON output for trading signals
@@ -215,14 +215,14 @@ curl -X POST http://localhost:3000/api/analyze \
 
 ### Common Issues & Solutions
 
-| Issue                               | Symptoms                          | Solution                                                           |
-| ----------------------------------- | --------------------------------- | ------------------------------------------------------------------ |
-| **Microphone Access Denied**       | Voice button not responding       | Enable microphone permissions in browser settings                 |
-| **Speech Recognition Not Working**  | Voice input not transcribing      | Use Chrome/Edge browser; check microphone hardware                |
-| **LunarCrush 401 Unauthorized**    | "Invalid API key" error           | Verify API key format and active subscription at lunarcrush.com   |
-| **Gemini AI Errors**               | "AI analysis failed"              | Check Google AI API key and quota limits at aistudio.google.com   |
-| **Voice Output Not Playing**       | Silent responses                  | Check browser audio settings and autoplay policy                  |
-| **MCP Connection Timeout**         | Analysis stuck at connection step | Verify internet connectivity and LunarCrush API status            |
+| Issue                              | Symptoms                          | Solution                                                        |
+| ---------------------------------- | --------------------------------- | --------------------------------------------------------------- |
+| **Microphone Access Denied**       | Voice button not responding       | Enable microphone permissions in browser settings               |
+| **Speech Recognition Not Working** | Voice input not transcribing      | Use Chrome/Edge browser; check microphone hardware              |
+| **LunarCrush 401 Unauthorized**    | "Invalid API key" error           | Verify API key format and active subscription at lunarcrush.com |
+| **Gemini AI Errors**               | "AI analysis failed"              | Check Google AI API key and quota limits at aistudio.google.com |
+| **Voice Output Not Playing**       | Silent responses                  | Check browser audio settings and autoplay policy                |
+| **MCP Connection Timeout**         | Analysis stuck at connection step | Verify internet connectivity and LunarCrush API status          |
 
 ### Debug Workflow
 

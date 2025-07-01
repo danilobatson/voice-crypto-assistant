@@ -7,25 +7,25 @@ import theme from '@/lib/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Voice Crypto Assistant',
-  description: 'AI-powered cryptocurrency analysis with voice interface',
+	title: 'Voice Crypto Assistant',
+	description: 'AI-powered cryptocurrency analysis with voice interface',
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }) {
-  return (
-    <html lang="en">
-      <body>
-        <AppRouterCacheProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            {children}
-          </ThemeProvider>
-        </AppRouterCacheProvider>
-      </body>
-    </html>
-  );
+	return (
+		<html lang='en'>
+			<body>
+				<AppRouterCacheProvider>
+					<ThemeProvider theme={theme}>
+						<CssBaseline />
+						{children}
+					</ThemeProvider>
+				</AppRouterCacheProvider>
+			</body>
+		</html>
+	);
 }
