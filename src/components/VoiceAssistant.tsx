@@ -2,45 +2,50 @@
 
 import { useState, useEffect, useRef, useImperativeHandle } from 'react';
 import {
-  Box,
-  Card,
-  Typography,
-  Button,
-  TextField,
-  Paper,
-  Stack,
-  IconButton,
-  Slider,
-  Collapse,
-  Chip,
-  Badge,
-  Container,
-  Grow,
-  Fade,
-  alpha,
-  Switch,
-  FormControlLabel
+	Box,
+	Card,
+	Typography,
+	Button,
+	TextField,
+	Paper,
+	Stack,
+	IconButton,
+	Slider,
+	Collapse,
+	Chip,
+	Badge,
+	Container,
+	Grow,
+	Fade,
+	alpha,
+	Switch,
+	FormControlLabel,
+	Select,
+	MenuItem,
+	FormControl,
+	InputLabel,
 } from '@mui/material';
 import {
-  Mic,
-  MicOff,
-  Psychology,
-  VolumeUp,
-  VolumeDown,
-  VolumeOff,
-  PlayArrow,
-  Pause,
-  Stop,
-  Settings,
-  Edit,
-  Send,
-  Cancel,
-  TrendingUp,
-  TrendingDown,
-  Remove,
-  ExpandMore,
-  ExpandLess,
-  RecordVoiceOver
+	Mic,
+	MicOff,
+	Psychology,
+	VolumeUp,
+	VolumeDown,
+	VolumeOff,
+	PlayArrow,
+	Pause,
+	Stop,
+	Settings,
+	Edit,
+	Send,
+	Cancel,
+	TrendingUp,
+	TrendingDown,
+	Remove,
+	ExpandMore,
+	ExpandLess,
+	RecordVoiceOver,
+	VoiceChat,
 } from '@mui/icons-material';
 
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
@@ -49,300 +54,352 @@ import { AnalysisProgress } from './AnalysisProgress';
 import { AnalysisResults } from './AnalysisResults';
 
 interface VoiceAssistantProps {
-  ref?: React.Ref<{ startVoiceInput: () => void }>;
+	ref?: React.Ref<{ startVoiceInput: () => void }>;
 }
 
 export function VoiceAssistant({ ref }: VoiceAssistantProps) {
-  // State management
-  const [mounted, setMounted] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [lastResponse, setLastResponse] = useState<string>('');
-  const [analysisData, setAnalysisData] = useState<any>(null);
-  const [queryHistory, setQueryHistory] = useState<string[]>([]);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
-  const [showAudioControls, setShowAudioControls] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(true);
+	// State management
+	const [mounted, setMounted] = useState(false);
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [lastResponse, setLastResponse] = useState<string>('');
+	const [analysisData, setAnalysisData] = useState<any>(null);
+	const [queryHistory, setQueryHistory] = useState<string[]>([]);
+	const [abortController, setAbortController] =
+		useState<AbortController | null>(null);
+	const [showAudioControls, setShowAudioControls] = useState(false);
+	const [autoSpeak, setAutoSpeak] = useState(true);
 
-  // Edit functionality state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedQuery, setEditedQuery] = useState('');
+	// Edit functionality state
+	const [isEditing, setIsEditing] = useState(false);
+	const [editedQuery, setEditedQuery] = useState('');
 
-  // Voice hooks
-  const {
-    transcript,
-    isListening,
-    isMicrophoneAvailable,
-    startListening,
-    stopListening,
-    resetTranscript,
-    error: voiceError
-  } = useVoiceRecognition();
+	// Voice hooks
+	const {
+		transcript,
+		isListening,
+		isMicrophoneAvailable,
+		startListening,
+		stopListening,
+		resetTranscript,
+		error: voiceError,
+	} = useVoiceRecognition();
 
-  const {
-    isSpeaking,
-    speak,
-    pause,
-    resume,
-    stop: stopSpeaking,
-    isPaused,
-    setRate,
-    setVolume,
-    currentRate,
-    currentVolume,
-    error: speechError
-  } = useVoiceOutput();
+	const {
+		isSpeaking,
+		speak,
+		pause,
+		resume,
+		stop: stopSpeaking,
+		isPaused,
+		setRate,
+		setVolume,
+		setVoice,
+		currentRate,
+		currentVolume,
+		currentVoice,
+		availableVoices,
+		error: speechError,
+	} = useVoiceOutput();
 
-  // Refs
-  const lastTranscriptRef = useRef<string>('');
-  const silenceTimer = useRef<NodeJS.Timeout | null>(null);
+	// Refs
+	const lastTranscriptRef = useRef<string>('');
+	const silenceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Fix hydration error
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+	// Fix hydration error
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
-  // Expose voice input method to parent components (React 19 style)
-  useImperativeHandle(ref, () => ({
-    startVoiceInput: handleVoiceInput
-  }));
+	// Expose voice input method to parent components (React 19 style)
+	useImperativeHandle(ref, () => ({
+		startVoiceInput: handleVoiceInput,
+	}));
 
-  // Auto-submit after 4 seconds of silence - only if not in edit mode
-  useEffect(() => {
-    if (transcript && transcript !== lastTranscriptRef.current && !isEditing) {
-      lastTranscriptRef.current = transcript;
+	// Auto-submit after 4 seconds of silence - ONLY if not editing
+	useEffect(() => {
+		if (transcript && transcript !== lastTranscriptRef.current && !isEditing) {
+			lastTranscriptRef.current = transcript;
 
-      // Clear existing timer
-      if (silenceTimer.current) {
-        clearTimeout(silenceTimer.current);
-      }
+			// Clear existing timer
+			if (silenceTimer.current) {
+				clearTimeout(silenceTimer.current);
+			}
 
-      // Set edited query immediately when transcript appears
-      setEditedQuery(transcript);
+			// IMMEDIATELY set edited query when transcript appears
+			setEditedQuery(transcript);
 
-      // Set new timer for auto-submit
-      const timer = setTimeout(() => {
-        if (transcript.trim() && isListening && !isEditing) {
-          console.log('Auto-submitting after silence:', transcript);
-          stopListening();
-          processQuery(transcript);
-        }
-      }, 4000);
+			// Set new timer for auto-submit (only if not editing)
+			const timer = setTimeout(() => {
+				if (transcript.trim() && isListening && !isEditing) {
+					console.log('Auto-submitting after silence:', transcript);
+					stopListening();
+					processQuery(transcript);
+				}
+			}, 4000);
 
-      silenceTimer.current = timer;
-    }
+			silenceTimer.current = timer;
+		}
 
-    return () => {
-      if (silenceTimer.current) {
-        clearTimeout(silenceTimer.current);
-      }
-    };
-  }, [transcript, isListening, isEditing]);
+		return () => {
+			if (silenceTimer.current) {
+				clearTimeout(silenceTimer.current);
+			}
+		};
+	}, [transcript, isListening, isEditing]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    if (!mounted) return;
+	// Keyboard shortcuts
+	useEffect(() => {
+		if (!mounted) return;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Space bar to toggle voice input (when not editing)
-      if (event.code === 'Space' && !isEditing && event.target === document.body) {
-        event.preventDefault();
-        handleVoiceInput();
-      }
+		const handleKeyDown = (event: KeyboardEvent) => {
+			// Space bar to toggle voice input (when not editing)
+			if (
+				event.code === 'Space' &&
+				!isEditing &&
+				event.target === document.body
+			) {
+				event.preventDefault();
+				handleVoiceInput();
+			}
 
-      // Escape to cancel/stop everything
-      if (event.code === 'Escape') {
-        if (isListening) {
-          stopListening();
-          resetTranscript();
-          setEditedQuery('');
-        } else if (isSpeaking) {
-          stopSpeaking();
-        } else if (isProcessing) {
-          handleStopQuery();
-        } else if (isEditing) {
-          handleCancelEdit();
-        }
-      }
+			// Escape to cancel/stop everything
+			if (event.code === 'Escape') {
+				if (isListening) {
+					stopListening();
+					resetTranscript();
+					setEditedQuery('');
+				} else if (isSpeaking) {
+					stopSpeaking();
+				} else if (isProcessing) {
+					handleStopQuery();
+				} else if (isEditing) {
+					handleCancelEdit();
+				}
+			}
 
-      // Enter to submit (when editing)
-      if (event.code === 'Enter' && isEditing) {
-        event.preventDefault();
-        handleSubmitEditedQuery();
-      }
-    };
+			// Enter to submit (when editing)
+			if (event.code === 'Enter' && isEditing) {
+				event.preventDefault();
+				handleSubmitEditedQuery();
+			}
+		};
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [mounted, isListening, isSpeaking, isEditing, isProcessing]);
+		document.addEventListener('keydown', handleKeyDown);
+		return () => document.removeEventListener('keydown', handleKeyDown);
+	}, [mounted, isListening, isSpeaking, isEditing, isProcessing]);
 
-  // Load settings from localStorage
-  useEffect(() => {
-    if (!mounted) return;
+	// Load settings from localStorage
+	useEffect(() => {
+		if (!mounted) return;
 
-    try {
-      const saved = localStorage.getItem('voiceAssistantHistory');
-      if (saved) {
-        setQueryHistory(JSON.parse(saved));
-      }
+		try {
+			const saved = localStorage.getItem('voiceAssistantHistory');
+			if (saved) {
+				setQueryHistory(JSON.parse(saved));
+			}
 
-      const savedAutoSpeak = localStorage.getItem('voiceAssistantAutoSpeak');
-      if (savedAutoSpeak !== null) {
-        setAutoSpeak(JSON.parse(savedAutoSpeak));
-      }
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
-  }, [mounted]);
+			const savedAutoSpeak = localStorage.getItem('voiceAssistantAutoSpeak');
+			if (savedAutoSpeak !== null) {
+				setAutoSpeak(JSON.parse(savedAutoSpeak));
+			}
+		} catch (error) {
+			console.error('Failed to load settings:', error);
+		}
+	}, [mounted]);
 
-  // Save query history to localStorage
-  const saveQueryHistory = (newHistory: string[]) => {
-    try {
-      setQueryHistory(newHistory);
-      localStorage.setItem('voiceAssistantHistory', JSON.stringify(newHistory));
-    } catch (error) {
-      console.error('Failed to save query history:', error);
-    }
-  };
+	// Save query history to localStorage
+	const saveQueryHistory = (newHistory: string[]) => {
+		try {
+			setQueryHistory(newHistory);
+			localStorage.setItem('voiceAssistantHistory', JSON.stringify(newHistory));
+		} catch (error) {
+			console.error('Failed to save query history:', error);
+		}
+	};
 
-  // Save auto-speak setting
-  const handleAutoSpeakChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = event.target.checked;
-    setAutoSpeak(newValue);
-    try {
-      localStorage.setItem('voiceAssistantAutoSpeak', JSON.stringify(newValue));
-    } catch (error) {
-      console.error('Failed to save auto-speak setting:', error);
-    }
-  };
+	// Save auto-speak setting
+	const handleAutoSpeakChange = (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const newValue = event.target.checked;
+		setAutoSpeak(newValue);
+		try {
+			localStorage.setItem('voiceAssistantAutoSpeak', JSON.stringify(newValue));
+		} catch (error) {
+			console.error('Failed to save auto-speak setting:', error);
+		}
+	};
 
-  const handleVoiceInput = () => {
-    if (!mounted) return;
+	const handleVoiceInput = () => {
+		if (!mounted) return;
 
-    if (isListening) {
-      stopListening();
-    } else {
-      resetTranscript();
-      setIsEditing(false);
-      setEditedQuery('');
-      startListening();
-    }
-  };
+		if (isListening) {
+			stopListening();
+		} else {
+			resetTranscript();
+			setIsEditing(false);
+			setEditedQuery('');
+			startListening();
+		}
+	};
 
-  const handleStopQuery = () => {
-    if (abortController) {
-      abortController.abort();
-      setAbortController(null);
-    }
-    setIsProcessing(false);
-  };
+	const handleStopQuery = () => {
+		// Stop any pending auto-submit
+		if (silenceTimer.current) {
+			clearTimeout(silenceTimer.current);
+			silenceTimer.current = null;
+		}
 
-  // Edit functionality handlers
-  const handleStartEdit = () => {
-    if (silenceTimer.current) {
-      clearTimeout(silenceTimer.current);
-    }
-    setIsEditing(true);
-    if (isListening) {
-      stopListening();
-    }
-  };
+		// Stop any in-progress API call
+		if (abortController) {
+			abortController.abort();
+			setAbortController(null);
+		}
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedQuery('');
-  };
+		setIsProcessing(false);
+	};
 
-  const handleSubmitEditedQuery = () => {
-    if (editedQuery.trim()) {
-      setIsEditing(false);
-      processQuery(editedQuery.trim());
-    }
-  };
+	// Edit functionality handlers
+	const handleStartEdit = () => {
+		console.log(
+			'🛑 Starting edit mode - stopping auto-submit and any processing'
+		);
 
-  const processQuery = async (query: string) => {
-    setIsProcessing(true);
-    setAnalysisData(null);
+		// IMMEDIATELY stop auto-submit timer
+		if (silenceTimer.current) {
+			clearTimeout(silenceTimer.current);
+			silenceTimer.current = null;
+		}
 
-    // Save to history
-    const newHistory = [query, ...queryHistory.slice(0, 9)];
-    saveQueryHistory(newHistory);
+		// STOP any in-progress query processing
+		if (abortController) {
+			abortController.abort();
+			setAbortController(null);
+		}
+		setIsProcessing(false);
 
-    try {
-      const controller = new AbortController();
-      setAbortController(controller);
+		// Stop listening if currently listening
+		if (isListening) {
+			stopListening();
+		}
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
-        signal: controller.signal
-      });
+		// Enter edit mode
+		setIsEditing(true);
+	};
 
-      if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.status}`);
-      }
+	const handleCancelEdit = () => {
+		setIsEditing(false);
+		setEditedQuery(transcript || ''); // Reset to original transcript
+	};
 
-      const data = await response.json();
-      console.log('📊 API Response:', data);
+	const handleSubmitEditedQuery = () => {
+		if (editedQuery.trim()) {
+			console.log('🚀 Submitting EDITED query:', editedQuery);
+			setIsEditing(false);
+			processQuery(editedQuery.trim()); // Submit the EDITED query, not transcript
+		}
+	};
 
-      if (data.success) {
-        setAnalysisData(data);
-        setLastResponse(data.spokenResponse);
+	const processQuery = async (query: string) => {
+		console.log('📝 Processing query:', query);
+		setIsProcessing(true);
+		setAnalysisData(null);
 
-        // Auto-speak the response if enabled
-        if (autoSpeak && data.spokenResponse) {
-          console.log('🔊 Auto-speaking response:', data.spokenResponse);
-          try {
-            await speak(data.spokenResponse);
-          } catch (speechErr) {
-            console.error('Speech error:', speechErr);
-          }
-        }
-      } else {
-        throw new Error(data.error || 'Analysis failed');
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('Query was cancelled');
-        return;
-      }
+		// Save to history
+		const newHistory = [query, ...queryHistory.slice(0, 9)];
+		saveQueryHistory(newHistory);
 
-      console.error('Error processing query:', error);
-      const errorMessage = 'I apologize, but I encountered an error processing your request. Please try again.';
-      setLastResponse(errorMessage);
+		try {
+			const controller = new AbortController();
+			setAbortController(controller);
 
-      if (autoSpeak) {
-        try {
-          await speak(errorMessage);
-        } catch (speechErr) {
-          console.error('Speech error:', speechErr);
-        }
-      }
-    } finally {
-      setIsProcessing(false);
-      setAbortController(null);
-    }
-  };
+			const response = await fetch('/api/analyze', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ query }),
+				signal: controller.signal,
+			});
 
-  // Manual speak function for the "Speak Response" button
-  const handleManualSpeak = () => {
-    if (lastResponse && !isSpeaking) {
-      speak(lastResponse);
-    }
-  };
+			if (!response.ok) {
+				throw new Error(`Analysis failed: ${response.status}`);
+			}
 
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return (
-      <Box sx={{ maxWidth: '1200px', mx: 'auto', p: { xs: 2, md: 3 } }}>
-        <Card elevation={0} sx={{ p: { xs: 3, md: 4 }, textAlign: 'center' }}>
-          <Typography variant="h4">Loading Voice Assistant...</Typography>
-        </Card>
-      </Box>
-    );
-  }
+			const data = await response.json();
+			console.log('📊 API Response:', data);
 
-  return (
+			if (data.success) {
+				setAnalysisData(data);
+				setLastResponse(data.spokenResponse);
+
+				// Auto-speak the response if enabled
+				if (autoSpeak && data.spokenResponse) {
+					console.log('🔊 Auto-speaking response');
+					try {
+						await speak(data.spokenResponse);
+					} catch (speechErr) {
+						console.error('Speech error:', speechErr);
+					}
+				}
+			} else {
+				throw new Error(data.error || 'Analysis failed');
+			}
+		} catch (error: any) {
+			if (error.name === 'AbortError') {
+				console.log('Query was cancelled');
+				return;
+			}
+
+			console.error('Error processing query:', error);
+			const errorMessage =
+				'I apologize, but I encountered an error processing your request. Please try again.';
+			setLastResponse(errorMessage);
+
+			if (autoSpeak) {
+				try {
+					await speak(errorMessage);
+				} catch (speechErr) {
+					console.error('Speech error:', speechErr);
+				}
+			}
+		} finally {
+			setIsProcessing(false);
+			setAbortController(null);
+		}
+	};
+
+	// Manual speak function for the "Speak Response" button
+	const handleManualSpeak = () => {
+		if (lastResponse && !isSpeaking) {
+			speak(lastResponse);
+		}
+	};
+
+	// Test voice function
+	const handleTestVoice = () => {
+		if (!isSpeaking) {
+			speak(
+				'Hello! This is a test of the selected voice. How does this sound?'
+			);
+		}
+	};
+
+	// Get voice display name
+	const getVoiceDisplayName = (voice: SpeechSynthesisVoice) => {
+		return `${voice.name} (${voice.lang})`;
+	};
+
+	// Prevent hydration mismatch by not rendering until mounted
+	if (!mounted) {
+		return (
+			<Box sx={{ maxWidth: '1200px', mx: 'auto', p: { xs: 2, md: 3 } }}>
+				<Card elevation={0} sx={{ p: { xs: 3, md: 4 }, textAlign: 'center' }}>
+					<Typography variant='h4'>Loading Voice Assistant...</Typography>
+				</Card>
+			</Box>
+		);
+	}
+
+	return (
 		<Box
 			id='voice-assistant'
 			sx={{ maxWidth: '1200px', mx: 'auto', p: { xs: 2, md: 3 } }}>
@@ -526,11 +583,69 @@ export function VoiceAssistant({ ref }: VoiceAssistantProps) {
 							</Box>
 						)}
 
+						{/* Current Voice Display */}
+						{currentVoice && (
+							<Box sx={{ textAlign: 'center' }}>
+								<Chip
+									icon={<VoiceChat />}
+									label={`Voice: ${currentVoice.name}`}
+									variant='outlined'
+									size='small'
+								/>
+							</Box>
+						)}
+
 						{/* Expanded Audio Controls */}
 						<Collapse in={showAudioControls}>
 							<Paper
 								elevation={1}
 								sx={{ p: 3, borderRadius: 2, bgcolor: 'background.paper' }}>
+								{/* Voice Selection */}
+								<Box sx={{ mb: 3 }}>
+									<Typography
+										variant='body2'
+										gutterBottom
+										sx={{ color: 'text.secondary', fontWeight: 600 }}>
+										Voice Selection
+									</Typography>
+									<Stack
+										direction={{ xs: 'column', sm: 'row' }}
+										spacing={2}
+										alignItems={{ sm: 'center' }}>
+										<FormControl fullWidth sx={{ minWidth: 200 }}>
+											<Select
+												value={currentVoice?.name || ''}
+												onChange={(e) => {
+													const selectedVoice = availableVoices.find(
+														(v) => v.name === e.target.value
+													);
+													setVoice(selectedVoice || null);
+												}}
+												displayEmpty
+												size='small'>
+												<MenuItem value=''>
+													<em>Default Voice</em>
+												</MenuItem>
+												{availableVoices
+													.filter((v) => v.lang.includes('US'))
+													.map((voice) => (
+														<MenuItem key={voice.name} value={voice.name}>
+															{getVoiceDisplayName(voice)}
+														</MenuItem>
+													))}
+											</Select>
+										</FormControl>
+										<Button
+											onClick={handleTestVoice}
+											variant='outlined'
+											size='small'
+											startIcon={<VoiceChat />}
+											disabled={isSpeaking}>
+											Test Voice
+										</Button>
+									</Stack>
+								</Box>
+
 								{/* Speed Control */}
 								<Box sx={{ mb: 3 }}>
 									<Typography
@@ -652,17 +767,25 @@ export function VoiceAssistant({ ref }: VoiceAssistantProps) {
 												"{transcript || editedQuery}"
 											</Typography>
 
-											{/* IMMEDIATE Edit and Submit Options */}
-											{(transcript || editedQuery) && !isListening && (
+											{/* IMMEDIATE Edit and Submit Options - Show as soon as transcript appears */}
+											{transcript && (
 												<Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
 													<Button
 														variant='outlined'
 														onClick={handleStartEdit}
 														startIcon={<Edit />}
-														size='small'>
+														size='small'
+														sx={{
+															borderColor: '#FFB800',
+															color: '#FFB800',
+															'&:hover': {
+																borderColor: '#FF9800',
+																bgcolor: alpha('#FFB800', 0.1),
+															},
+														}}>
 														Edit Query
 													</Button>
-													{transcript && (
+													{!isListening && (
 														<Button
 															variant='contained'
 															onClick={() => processQuery(transcript)}
@@ -675,7 +798,7 @@ export function VoiceAssistant({ ref }: VoiceAssistantProps) {
 												</Box>
 											)}
 
-											{/* Auto-submit countdown */}
+											{/* Auto-submit countdown - only show when listening */}
 											{isListening && transcript && (
 												<Typography
 													variant='caption'

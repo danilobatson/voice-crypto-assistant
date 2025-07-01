@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface UseVoiceOutputReturn {
   isSpeaking: boolean;
@@ -11,8 +11,11 @@ interface UseVoiceOutputReturn {
   stop: () => void;
   setRate: (rate: number) => void;
   setVolume: (volume: number) => void;
+  setVoice: (voice: SpeechSynthesisVoice | null) => void;
   currentRate: number;
   currentVolume: number;
+  currentVoice: SpeechSynthesisVoice | null;
+  availableVoices: SpeechSynthesisVoice[];
   error: string | null;
 }
 
@@ -21,10 +24,47 @@ export function useVoiceOutput(): UseVoiceOutputReturn {
   const [isPaused, setIsPaused] = useState(false);
   const [currentRate, setCurrentRate] = useState(1);
   const [currentVolume, setCurrentVolume] = useState(1);
+  const [currentVoice, setCurrentVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [error, setError] = useState<string | null>(null);
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const isIntentionalStop = useRef(false);
+
+  // Load available voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      setAvailableVoices(voices);
+      
+      // Auto-select a good default voice if none selected
+      if (!currentVoice && voices.length > 0) {
+        // Try to find a good English voice
+        const preferredVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && (
+            voice.name.includes('Google') || 
+            voice.name.includes('Microsoft') ||
+            voice.name.includes('Samantha') || // macOS
+            voice.name.includes('Alex') || // macOS
+            voice.name.includes('Natural') ||
+            voice.name.includes('Neural')
+          )
+        ) || voices.find(voice => voice.lang.startsWith('en')) || voices[0];
+        
+        setCurrentVoice(preferredVoice);
+      }
+    };
+
+    // Load voices immediately
+    loadVoices();
+
+    // Some browsers load voices asynchronously
+    speechSynthesis.addEventListener('voiceschanged', loadVoices);
+    
+    return () => {
+      speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+    };
+  }, [currentVoice]);
 
   const speak = useCallback(async (text: string) => {
     return new Promise<void>((resolve, reject) => {
@@ -48,16 +88,9 @@ export function useVoiceOutput(): UseVoiceOutputReturn {
         utterance.volume = currentVolume;
         utterance.pitch = 1;
 
-        // Try to get a better voice
-        const voices = speechSynthesis.getVoices();
-        const preferredVoice = voices.find(voice => 
-          voice.name.includes('Google') || 
-          voice.name.includes('Microsoft') ||
-          voice.name.includes('System')
-        );
-        
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
+        // Use selected voice
+        if (currentVoice) {
+          utterance.voice = currentVoice;
         }
 
         utterance.onstart = () => {
@@ -108,7 +141,7 @@ export function useVoiceOutput(): UseVoiceOutputReturn {
         reject(err);
       }
     });
-  }, [currentRate, currentVolume]);
+  }, [currentRate, currentVolume, currentVoice]);
 
   const pause = useCallback(() => {
     if (utteranceRef.current && isSpeaking) {
@@ -154,6 +187,19 @@ export function useVoiceOutput(): UseVoiceOutputReturn {
     }
   }, []);
 
+  const setVoice = useCallback((voice: SpeechSynthesisVoice | null) => {
+    setCurrentVoice(voice);
+    // If currently speaking, stop and restart with new voice
+    if (utteranceRef.current && isSpeaking) {
+      const currentText = utteranceRef.current.text;
+      stop();
+      // Small delay to ensure clean stop
+      setTimeout(() => {
+        speak(currentText);
+      }, 100);
+    }
+  }, [isSpeaking, speak, stop]);
+
   return {
     isSpeaking,
     isPaused,
@@ -163,8 +209,11 @@ export function useVoiceOutput(): UseVoiceOutputReturn {
     stop,
     setRate,
     setVolume,
+    setVoice,
     currentRate,
     currentVolume,
+    currentVoice,
+    availableVoices,
     error
   };
 }
