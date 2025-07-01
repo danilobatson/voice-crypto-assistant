@@ -131,7 +131,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 				</Box>
 
 				{/* Key Decision Metrics */}
-				<Grid container spacing={3}>
+				<Grid container spacing={3} gap={4} marginTop={2}>
 					<Grid size={{ xs: 12, md: 4 }}>
 						<Card
 							elevation={0}
@@ -139,7 +139,9 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 								bgcolor: alpha(recColor.bg, 0.1),
 								border: `2px solid ${recColor.bg}`,
 								textAlign: 'center',
-								p: 2,
+								width: '12em',
+								height: '100%',
+								justifyContent: 'center',
 							}}>
 							<Typography variant='h6' color='text.secondary' gutterBottom>
 								Recommendation
@@ -165,7 +167,9 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 								bgcolor: alpha('#4285F4', 0.1),
 								border: '2px solid #4285F4',
 								textAlign: 'center',
-								p: 2,
+								width: '12em',
+								height: '100%',
+								justifyContent: 'center',
 							}}>
 							<Typography variant='h6' color='text.secondary' gutterBottom>
 								Confidence Level
@@ -178,7 +182,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, md: 4 }}>
+					<Grid size={{ xs: 12, md: 4,  }}>
 						<Card
 							elevation={0}
 							sx={{
@@ -190,7 +194,9 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									data.data.social_sentiment
 								)}`,
 								textAlign: 'center',
-								p: 2,
+								width: '12em',
+								height: '100%',
+								justifyContent: 'center',
 							}}>
 							<Typography variant='h6' color='text.secondary' gutterBottom>
 								Social Sentiment
@@ -476,19 +482,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 					</Paper>
 				</Grid>
 
-				<Grid size={{ xs: 12 }}>
-					<Paper elevation={1} sx={{ p: 4, borderRadius: 3 }}>
-						<Typography
-							variant='h6'
-							gutterBottom
-							sx={{ color: '#FFB800', fontWeight: 600 }}>
-							🔍 Additional Insights
-						</Typography>
-						<Typography variant='body1' sx={{ lineHeight: 1.7 }}>
-							{data.data.miscellaneous}
-						</Typography>
-					</Paper>
-				</Grid>
+				
 			</Grid>
 
 			{/* Detection Info */}
