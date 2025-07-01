@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 		// Step 1: Let Gemini identify what cryptocurrency the user is asking about
 		console.log('🔍 Step 1: AI-powered cryptocurrency detection...');
 		const detectionModel = genAI.getGenerativeModel({
-			model: 'gemini-2.0-flash-exp',
+			model: 'gemini-2.0-flash-lite',
 		});
 
 		const detectionPrompt = `
@@ -233,7 +233,7 @@ IMPORTANT: Return ONLY valid JSON, no other text.
 		console.log('🧠 Step 3: AI analysis with Gemini...');
 
 		const analysisModel = genAI.getGenerativeModel({
-			model: 'gemini-2.0-flash-exp',
+			model: 'gemini-2.0-flash-lite',
 		});
 
 		const toolDataSummary = toolResults.map((result) => ({
