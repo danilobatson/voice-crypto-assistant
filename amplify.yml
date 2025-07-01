@@ -11,21 +11,24 @@ frontend:
         - echo "=== Pre-build Phase ==="
         - echo "Node version:" && node --version
         - echo "NPM version:" && npm --version
+        - echo "Installing Yarn globally..."
+        - npm install -g yarn
+        - echo "Yarn version:" && yarn --version
         - echo "Available memory:" && free -m || echo "Memory info not available"
         - echo "Cleaning previous builds..."
-        - rm -rf node_modules package-lock.json .next
-        - echo "Installing dependencies..."
-        - npm install --no-optional --no-audit --no-fund
-        - echo "Installing TypeScript and ESLint for build compatibility..."
-        - npm install --save-dev typescript @types/node @types/react @types/react-dom eslint
+        - rm -rf node_modules package-lock.json yarn.lock .next
+        - echo "Installing dependencies with Yarn..."
+        - yarn install
+        - echo "Adding TypeScript dependencies as suggested by Next.js..."
+        - yarn add --dev typescript @types/node @types/react @types/react-dom eslint
         - echo "Disabling Next.js telemetry..."
         - npx next telemetry disable
         - echo "=== Pre-build Complete ==="
     build:
       commands:
         - echo "=== Build Phase ==="
-        - echo "Starting Next.js build..."
-        - npm run build
+        - echo "Starting Next.js build with Yarn..."
+        - yarn build
         - echo "=== Build Complete ==="
   artifacts:
     baseDirectory: .next
@@ -34,3 +37,4 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
+      - .yarn/cache/**/*
