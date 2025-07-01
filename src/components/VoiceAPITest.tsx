@@ -26,6 +26,9 @@ interface StructuredAPIResponse {
   spokenResponse: string;
   toolsUsed: number;
   dataPoints: number;
+  crypto_detection?: any;
+  responseTime?: number;
+  timestamp?: string;
 }
 
 export function VoiceAPITest() {
@@ -43,8 +46,19 @@ export function VoiceAPITest() {
   const [showVolumeWarning, setShowVolumeWarning] = useState(false);
   const [hasTestedVolume, setHasTestedVolume] = useState(false);
 
-  // Auto-submit controls
+  // Query tracking and editing
+  const [submittedQuery, setSubmittedQuery] = useState<string>('');
   const [processingQuery, setProcessingQuery] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableQuery, setEditableQuery] = useState<string>('');
+  const [showEditOption, setShowEditOption] = useState(false);
+
+  // New features
+  const [queryHistory, setQueryHistory] = useState<string[]>([]);
+  const [isOnline, setIsOnline] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const [loadingStep, setLoadingStep] = useState('');
+
   const lastTranscriptRef = useRef('');
   const transcriptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -62,6 +76,63 @@ export function VoiceAPITest() {
     setIsClient(true);
   }, []);
 
+  // Load query history on mount
+  useEffect(() => {
+    if (isClient) {
+      try {
+        const saved = localStorage.getItem('cryptoQueryHistory');
+        if (saved) {
+          setQueryHistory(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.warn('Failed to load query history');
+      }
+    }
+  }, [isClient]);
+
+  // Network status detection
+  useEffect(() => {
+    if (!isClient) return;
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isClient]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isClient) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Spacebar to toggle voice input (when not editing)
+      if (event.code === 'Space' && !isEditing && document.activeElement?.tagName !== 'INPUT') {
+        event.preventDefault();
+        handleVoiceToggle();
+      }
+      
+      // Escape to cancel everything
+      if (event.code === 'Escape') {
+        stopEverything();
+      }
+      
+      // Enter to submit current transcript (when not editing)
+      if (event.code === 'Enter' && transcript && !isEditing && !loading) {
+        event.preventDefault();
+        testAPI(transcript);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isClient, isEditing, transcript, loading]);
+
   // Auto-submit logic when transcript stops changing
   useEffect(() => {
     if (listening && transcript && transcript !== lastTranscriptRef.current) {
@@ -71,15 +142,23 @@ export function VoiceAPITest() {
         clearTimeout(transcriptTimeoutRef.current);
       }
 
-      // Start timeout for auto-submit (no countdown UI)
-      transcriptTimeoutRef.current = setTimeout(() => {
-        if (transcript.trim() && listening) {
-          stopListening();
-          testAPI(transcript.trim());
-        }
-      }, 3000); // 3 seconds of silence before auto-submit
+      // Show edit option when transcript appears
+      if (transcript.trim()) {
+        setShowEditOption(true);
+        setEditableQuery(transcript);
+      }
+
+      // Start timeout for auto-submit (only if not in edit mode)
+      if (!isEditing) {
+        transcriptTimeoutRef.current = setTimeout(() => {
+          if (transcript.trim() && listening && !isEditing) {
+            stopListening();
+            testAPI(transcript.trim());
+          }
+        }, 4000); // 4 seconds to give time for editing
+      }
     }
-  }, [transcript, listening]);
+  }, [transcript, listening, isEditing]);
 
   // Show volume reminder after first speech attempt
   useEffect(() => {
@@ -93,12 +172,31 @@ export function VoiceAPITest() {
   // Check if speech synthesis is available
   const speechSynthesisAvailable = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
+  // Add query to history
+  const addToHistory = (query: string) => {
+    setQueryHistory(prev => {
+      const newHistory = [query, ...prev.filter(q => q !== query)].slice(0, 10); // Keep last 10
+      try {
+        localStorage.setItem('cryptoQueryHistory', JSON.stringify(newHistory));
+      } catch (e) {
+        console.warn('Failed to save query history');
+      }
+      return newHistory;
+    });
+  };
+
   const startListening = () => {
     resetTranscript();
     setProcessingQuery(false);
     lastTranscriptRef.current = '';
     setError(null);
     setResponse(null);
+    setSubmittedQuery('');
+    setIsEditing(false);
+    setEditableQuery('');
+    setShowEditOption(false);
+    setRetryCount(0);
+    setLoadingStep('');
     
     if (transcriptTimeoutRef.current) {
       clearTimeout(transcriptTimeoutRef.current);
@@ -137,8 +235,45 @@ export function VoiceAPITest() {
     setError(null);
     resetTranscript();
     lastTranscriptRef.current = '';
+    setIsEditing(false);
+    setEditableQuery('');
+    setShowEditOption(false);
+    setRetryCount(0);
+    setLoadingStep('');
     
     console.log('🛑 Everything stopped - ready for new query');
+  };
+
+  const startNewQuery = () => {
+    stopEverything();
+    setResponse(null);
+    setSubmittedQuery('');
+    console.log('🔄 Starting fresh - all data cleared');
+  };
+
+  const startEdit = () => {
+    // Stop the auto-submit timer
+    if (transcriptTimeoutRef.current) {
+      clearTimeout(transcriptTimeoutRef.current);
+    }
+    stopListening();
+    setIsEditing(true);
+    setEditableQuery(transcript || '');
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditableQuery('');
+    setShowEditOption(false);
+    resetTranscript();
+  };
+
+  const submitEditedQuery = () => {
+    if (editableQuery.trim()) {
+      setIsEditing(false);
+      setShowEditOption(false);
+      testAPI(editableQuery.trim());
+    }
   };
 
   const speakText = (text: string) => {
@@ -207,43 +342,75 @@ export function VoiceAPITest() {
     speakText("Volume test. If you can hear this, your volume is working correctly.");
   };
 
-  const testAPI = async (query: string) => {
+  // Enhanced testAPI with retry logic and progress tracking
+  const testAPI = async (query: string, attempt: number = 1) => {
+    const maxRetries = 3;
+    
     if (!query.trim()) {
       setError('Please provide a query first');
       return;
     }
 
+    // Check if offline
+    if (!isOnline) {
+      setError('No internet connection. Please check your network and try again.');
+      return;
+    }
+
+    // Store the submitted query immediately
+    setSubmittedQuery(query);
     setLoading(true);
     setProcessingQuery(true);
     setError(null);
     setResponse(null);
+    setShowEditOption(false);
+    setRetryCount(attempt - 1);
+
+    // Add to history
+    addToHistory(query);
 
     // Create abort controller for this request
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
     try {
-      console.log('🚀 Testing API with voice query:', query);
+      console.log(`🚀 Testing API with query: "${query}" (attempt ${attempt})`);
       
+      setLoadingStep('🔍 Detecting cryptocurrency...');
       const startTime = Date.now();
+      
       const result = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
         signal: abortController.signal
       });
-      const endTime = Date.now();
       
+      const endTime = Date.now();
       console.log(`📡 API Response in ${endTime - startTime}ms:`, result.status);
       
       if (!result.ok) {
-        throw new Error(`API Error: ${result.status} ${result.statusText}`);
+        const errorData = await result.json().catch(() => ({}));
+        
+        // Handle specific error codes
+        if (result.status === 429) {
+          throw new Error(`Too many requests. Please wait ${errorData.retryAfter || 60} seconds before trying again.`);
+        } else if (result.status === 400) {
+          throw new Error(errorData.error || 'Invalid request. Please check your query.');
+        } else if (result.status >= 500) {
+          throw new Error('Server error. Please try again in a moment.');
+        } else {
+          throw new Error(`API Error: ${result.status} ${result.statusText}`);
+        }
       }
       
+      setLoadingStep('🧠 Processing AI analysis...');
       const data = await result.json();
       console.log('✅ API Response Data:', data);
       
+      setLoadingStep('✅ Complete!');
       setResponse(data);
+      setRetryCount(0);
       
       if (autoSpeak && data.spokenResponse) {
         setTimeout(() => {
@@ -256,12 +423,38 @@ export function VoiceAPITest() {
         console.log('🛑 API request was cancelled');
         return;
       }
-      console.error('❌ API Error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      
+      console.error(`❌ API Error (attempt ${attempt}):`, err);
+      
+      // Retry logic
+      if (attempt < maxRetries && isOnline) {
+        console.log(`🔄 Retrying API call (attempt ${attempt + 1}/${maxRetries})`);
+        
+        // Exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        setTimeout(() => {
+          testAPI(query, attempt + 1);
+        }, delay);
+        return;
+      }
+      
+      // Final error handling
+      setRetryCount(0);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      
+      if (attempt >= maxRetries) {
+        setError(`Analysis failed after ${maxRetries} attempts: ${errorMessage}`);
+      } else {
+        setError(errorMessage);
+      }
+      
     } finally {
-      setLoading(false);
-      setProcessingQuery(false);
-      abortControllerRef.current = null;
+      if (attempt >= maxRetries || retryCount === 0) {
+        setLoading(false);
+        setProcessingQuery(false);
+        setLoadingStep('');
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -322,7 +515,18 @@ export function VoiceAPITest() {
   return (
     <div className="card">
       <h2>🎤 Voice Crypto Assistant</h2>
-      <p>Ask about any cryptocurrency using your voice - hands-free!</p>
+      <p>Ask about any cryptocurrency using your voice - with edit option for tricky names!</p>
+      
+      {/* Keyboard shortcuts hint */}
+      <div style={{ 
+        fontSize: '0.75rem', 
+        color: '#6c757d', 
+        textAlign: 'center',
+        marginBottom: '1rem',
+        fontStyle: 'italic'
+      }}>
+        💡 Shortcuts: Spacebar (start/stop voice) • Enter (submit) • Escape (cancel)
+      </div>
       
       {/* Voice Settings */}
       <div className="settings-panel">
@@ -369,20 +573,40 @@ export function VoiceAPITest() {
           </button>
         </div>
         
-        {speechSynthesisAvailable ? (
-          <div style={{ marginTop: '0.5rem' }}>
+        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {speechSynthesisAvailable ? (
             <span className="status-indicator success">
               ✅ Text-to-Speech Available
             </span>
-          </div>
-        ) : (
-          <div style={{ marginTop: '0.5rem' }}>
+          ) : (
             <span className="status-indicator error">
               ❌ Text-to-Speech Not Available
             </span>
-          </div>
-        )}
+          )}
+          
+          {!isOnline && (
+            <span className="status-indicator error">
+              🌐 Offline
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Network status warning */}
+      {!isOnline && (
+        <div className="status error">
+          <strong>🌐 No Internet Connection</strong>
+          <br />Please check your network connection and try again.
+        </div>
+      )}
+
+      {/* Retry indicator */}
+      {retryCount > 0 && (
+        <div className="status info">
+          <strong>🔄 Retrying... (Attempt {retryCount + 1}/3)</strong>
+          <br />Having trouble connecting to the analysis service.
+        </div>
+      )}
 
       {/* Volume Warning */}
       {showVolumeWarning && (
@@ -399,7 +623,7 @@ export function VoiceAPITest() {
       <div style={{ textAlign: 'center', margin: '2rem 0' }}>
         <button 
           onClick={handleVoiceToggle}
-          disabled={!isMicrophoneAvailable}
+          disabled={!isMicrophoneAvailable || isEditing}
           className={`button ${(listening || loading || processingQuery) ? 'danger' : ''}`}
           style={{ 
             fontSize: '1.2rem', 
@@ -419,19 +643,91 @@ export function VoiceAPITest() {
         )}
       </div>
 
-      {/* Voice Status */}
-      {listening && (
-        <div className="status info listening-status">
-          <strong>🎤 Listening...</strong>
-          <br />Ask about any cryptocurrency. I'll auto-submit after 3 seconds of silence.
-          <br /><em>Click "Stop & Cancel" to cancel anytime.</em>
+      {/* Submitted Query Display */}
+      {submittedQuery && (
+        <div style={{ 
+          background: '#e3f2fd', 
+          border: '2px solid #2196f3',
+          borderRadius: '8px',
+          padding: '1rem',
+          margin: '1rem 0',
+          position: 'relative'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <strong style={{ color: '#1976d2', fontSize: '1rem' }}>
+                📤 Your Query:
+              </strong>
+              <div style={{ 
+                marginTop: '0.5rem',
+                fontSize: '1.1rem',
+                fontWeight: '500',
+                color: '#0d47a1',
+                lineHeight: '1.4'
+              }}>
+                "{submittedQuery}"
+              </div>
+              {loading && (
+                <div style={{ 
+                  marginTop: '0.5rem',
+                  fontSize: '0.875rem',
+                  color: '#1976d2',
+                  fontStyle: 'italic'
+                }}>
+                  ⏳ {loadingStep || 'Analyzing this question...'}
+                </div>
+              )}
+              {response?.crypto_detection?.correction_made && (
+                <div style={{ 
+                  marginTop: '0.5rem',
+                  fontSize: '0.875rem',
+                  color: '#ff9800',
+                  fontStyle: 'italic'
+                }}>
+                  🔧 Auto-corrected: {response.crypto_detection.reasoning}
+                </div>
+              )}
+              {response && (
+                <div style={{ 
+                  marginTop: '0.5rem',
+                  fontSize: '0.875rem',
+                  color: '#2e7d32',
+                  fontStyle: 'italic'
+                }}>
+                  ✅ Analysis complete • Response time: {response.responseTime}ms
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={startNewQuery}
+              className="button"
+              style={{ 
+                background: '#4caf50',
+                fontSize: '0.875rem',
+                padding: '0.5rem 1rem',
+                marginLeft: '1rem'
+              }}
+            >
+              🔄 New Query
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Real-time Transcript Display */}
-      {listening && transcript && (
+      {/* Voice Status */}
+      {listening && !isEditing && (
+        <div className="status info listening-status">
+          <strong>🎤 Listening...</strong>
+          <br />Ask about any cryptocurrency. I'll auto-submit after 4 seconds of silence.
+          <br /><em>Click "Edit Query" below if the text looks wrong!</em>
+        </div>
+      )}
+
+      {/* Real-time Transcript Display with Edit Option */}
+      {(listening || showEditOption) && !isEditing && transcript && (
         <div className="transcript-container">
-          <strong>👂 I'm hearing:</strong> 
+          <strong>👂 I heard:</strong> 
           <div style={{ 
             marginTop: '0.5rem',
             fontSize: '1.1rem',
@@ -441,13 +737,226 @@ export function VoiceAPITest() {
             "{transcript}"
           </div>
           <div style={{ 
+            marginTop: '1rem',
+            display: 'flex',
+            gap: '0.5rem',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ 
+              fontSize: '0.875rem',
+              color: '#6c757d',
+              fontStyle: 'italic',
+              flex: 1
+            }}>
+              {listening ? 'Auto-submit in 4 seconds of silence...' : 'Ready to submit or edit'}
+            </div>
+            <button
+              onClick={startEdit}
+              className="button"
+              style={{ 
+                background: '#ffc107',
+                color: '#212529',
+                fontSize: '0.875rem',
+                padding: '0.5rem 1rem'
+              }}
+            >
+              ✏️ Edit Query
+            </button>
+            {!listening && (
+              <button
+                onClick={() => testAPI(transcript)}
+                className="button"
+                style={{ 
+                  background: '#28a745',
+                  fontSize: '0.875rem',
+                  padding: '0.5rem 1rem'
+                }}
+              >
+                🚀 Submit As-Is
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Mode */}
+      {isEditing && (
+        <div style={{ 
+          background: '#fff3cd', 
+          border: '2px solid #ffc107',
+          borderRadius: '8px',
+          padding: '1rem',
+          margin: '1rem 0'
+        }}>
+          <strong style={{ color: '#856404' }}>✏️ Edit Your Query:</strong>
+          <div style={{ marginTop: '1rem' }}>
+            <input
+              type="text"
+              value={editableQuery}
+              onChange={(e) => setEditableQuery(e.target.value)}
+              placeholder="Type your cryptocurrency question..."
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '2px solid #ffc107',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+              autoFocus
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  submitEditedQuery();
+                }
+              }}
+            />
+          </div>
+          <div style={{ 
+            marginTop: '1rem',
+            display: 'flex',
+            gap: '0.5rem',
+            justifyContent: 'flex-end'
+          }}>
+            <button
+              onClick={cancelEdit}
+              className="button"
+              style={{ 
+                background: '#6c757d',
+                fontSize: '0.875rem',
+                padding: '0.5rem 1rem'
+              }}
+            >
+              ❌ Cancel
+            </button>
+            <button
+              onClick={submitEditedQuery}
+              disabled={!editableQuery.trim()}
+              className="button"
+              style={{ 
+                background: '#28a745',
+                fontSize: '0.875rem',
+                padding: '0.5rem 1rem'
+              }}
+            >
+              🚀 Submit Query
+            </button>
+          </div>
+          <div style={{ 
             marginTop: '0.5rem',
             fontSize: '0.875rem',
             color: '#6c757d',
             fontStyle: 'italic'
           }}>
-            Keep talking or pause for 3 seconds to auto-submit...
+            💡 Perfect for tricky names like "Axie Infinity", "Chainlink", "Uniswap", etc.
           </div>
+        </div>
+      )}
+
+      {/* Manual Query Input */}
+      <div style={{ marginTop: '1rem' }}>
+        <details>
+          <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
+            ⌨️ Or type your query manually
+          </summary>
+          <div style={{ 
+            background: '#f8f9fa',
+            padding: '1rem',
+            borderRadius: '6px',
+            border: '1px solid #dee2e6'
+          }}>
+            <input
+              type="text"
+              placeholder="Type cryptocurrency name or question (e.g., 'Axie Infinity price', 'Chainlink sentiment')"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                marginBottom: '0.5rem'
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  const query = (e.target as HTMLInputElement).value;
+                  if (query.trim()) {
+                    testAPI(query.trim());
+                    (e.target as HTMLInputElement).value = '';
+                  }
+                }
+              }}
+            />
+            <div style={{ 
+              fontSize: '0.875rem',
+              color: '#6c757d',
+              fontStyle: 'italic'
+            }}>
+              Press Enter to submit • Great for hard-to-pronounce cryptocurrency names
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {/* Query History */}
+      {queryHistory.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
+              🕒 Recent Queries ({queryHistory.length})
+            </summary>
+            <div style={{ 
+              background: '#f8f9fa',
+              padding: '1rem',
+              borderRadius: '6px',
+              border: '1px solid #dee2e6'
+            }}>
+              {queryHistory.map((historyQuery, index) => (
+                <div 
+                  key={index}
+                  className="query-history-item"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.5rem',
+                    borderBottom: index < queryHistory.length - 1 ? '1px solid #dee2e6' : 'none'
+                  }}
+                >
+                  <span style={{ flex: 1, fontSize: '0.875rem' }}>
+                    "{historyQuery}"
+                  </span>
+                  <button
+                    onClick={() => testAPI(historyQuery)}
+                    disabled={loading || listening || processingQuery || isEditing}
+                    className="button"
+                    style={{ 
+                      background: '#007bff',
+                      fontSize: '0.75rem',
+                      padding: '0.25rem 0.5rem',
+                      marginLeft: '0.5rem'
+                    }}
+                  >
+                    🔄 Run Again
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  setQueryHistory([]);
+                  localStorage.removeItem('cryptoQueryHistory');
+                }}
+                className="button"
+                style={{ 
+                  background: '#dc3545',
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.5rem',
+                  marginTop: '0.5rem'
+                }}
+              >
+                🗑️ Clear History
+              </button>
+            </div>
+          </details>
         </div>
       )}
 
@@ -460,7 +969,7 @@ export function VoiceAPITest() {
           <button
             key={index}
             onClick={() => testAPI(query)}
-            disabled={loading || listening || processingQuery}
+            disabled={loading || listening || processingQuery || isEditing}
             className="button"
             style={{ 
               background: '#6c757d', 
@@ -474,22 +983,41 @@ export function VoiceAPITest() {
         ))}
       </div>
 
-      {/* Loading State */}
+      {/* Enhanced Loading State */}
       {(loading || processingQuery) && (
-        <div className="status info">
-          <strong>⏳ Analyzing with AI...</strong>
-          <br />🤖 Gemini AI is detecting the cryptocurrency...
-          <br />🌙 Gathering real-time LunarCrush data...
-          <br />📊 Generating structured analysis...
-          <br /><em>Click "Stop Analysis" to cancel and start over.</em>
+        <div className="loading-container">
+          <strong>⏳ {loadingStep || 'Analyzing with AI...'}</strong>
+          <div style={{ 
+            background: '#e9ecef', 
+            borderRadius: '4px', 
+            height: '4px', 
+            marginTop: '0.5rem',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              background: '#007bff',
+              height: '100%',
+              borderRadius: '4px',
+              animation: 'progress 2s ease-in-out infinite',
+              width: loading ? '70%' : '100%'
+            }} />
+          </div>
+          <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+            💡 <strong>Tip:</strong> Press Escape to cancel anytime
+          </div>
         </div>
       )}
 
       {/* Error Display */}
       {error && (
-        <div className="status error">
+        <div className="status error error-with-retry">
           <strong>❌ Error:</strong>
           <br />{error}
+          {!isOnline && (
+            <>
+              <br />🌐 Check your internet connection and try again.
+            </>
+          )}
         </div>
       )}
 
@@ -501,19 +1029,16 @@ export function VoiceAPITest() {
             <strong>✅ AI Analysis Complete!</strong>
             <br />Cryptocurrency: <strong>{response.symbol}</strong>
             <br />Tools Used: {response.toolsUsed} | Data Points: {response.dataPoints}
-            <br />
-            <button
-              onClick={stopEverything}
-              className="button"
-              style={{ 
-                background: '#28a745', 
-                fontSize: '0.875rem',
-                padding: '0.5rem 1rem',
-                marginTop: '0.5rem'
-              }}
-            >
-              🔄 New Query
-            </button>
+            {response.responseTime && (
+              <>
+                <br />⚡ Response Time: {response.responseTime}ms
+              </>
+            )}
+            {response.crypto_detection?.correction_made && (
+              <>
+                <br />🔧 <strong>Auto-corrected:</strong> {response.crypto_detection.original_term} → {response.crypto_detection.detected_crypto}
+              </>
+            )}
           </div>
 
           {/* Recommendation Section */}
@@ -714,25 +1239,20 @@ export function VoiceAPITest() {
         borderRadius: '6px',
         fontSize: '0.875rem'
       }}>
-        <strong>🎯 Enhanced Voice Features:</strong>
-        <br />• <strong>Auto-Submit:</strong> Stop talking for 3 seconds → auto-submit (no countdown UI)
-        <br />• <strong>Stop Anytime:</strong> Cancel during listening, analysis, or playback
-        <br />• <strong>Audio Resume:</strong> Pause and resume audio from the same spot
-        <br />• <strong>New Query:</strong> Quick reset button after each analysis
-        <br />• <strong>Hands-Free:</strong> Minimal clicking required
+        <strong>🎯 Complete Feature List:</strong>
+        <br />• <strong>Smart Voice Recognition:</strong> Auto-correction for crypto names
+        <br />• <strong>Edit Mode:</strong> Fix transcript before submission  
+        <br />• <strong>Manual Input:</strong> Type queries for any cryptocurrency
+        <br />• <strong>Query History:</strong> Recent queries saved and reusable
+        <br />• <strong>Retry Logic:</strong> Auto-retry failed requests (3 attempts)
+        <br />• <strong>Keyboard Shortcuts:</strong> Spacebar, Enter, Escape
+        <br />• <strong>Network Detection:</strong> Offline/online status
+        <br />• <strong>Progress Tracking:</strong> See which step is running
+        <br />• <strong>Audio Controls:</strong> Play, pause, resume, stop from any position
         <br /><br />
-        <strong>🎙️ Usage Flow:</strong>
-        <br />1. Click "🎤 Start Voice Input" once
-        <br />2. Ask your question naturally
-        <br />3. Stop talking - auto-submits after 3 seconds of silence
-        <br />4. Use "Stop Analysis" to cancel if needed
-        <br />5. Control audio playback (play/pause/resume/stop)
-        <br />6. Click "New Query" to start fresh
-        <br /><br />
-        <strong>🔊 Audio Controls:</strong>
-        <br />• Play → Pause → Resume → Stop (resume picks up where paused)
-        <br />• Adjust speed while playing
-        <br />• Stop analysis anytime to start over
+        <strong>🚀 Production Ready:</strong>
+        <br />• Rate limiting protection • Error categorization • Request timeouts
+        <br />• Smart fallbacks • Input validation • Response time tracking
       </div>
     </div>
   );
