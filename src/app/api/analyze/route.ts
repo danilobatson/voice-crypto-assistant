@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 		// Step 3: Create and connect MCP client
 		client = await createMCPClient(lunarKey);
 		const genAI = new GoogleGenerativeAI(geminiKey);
-		const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+		const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
 		console.log('🔄 MCP client initialized successfully');
 		console.log(`🔄 Fetching available MCP tools...`);
@@ -453,7 +453,7 @@ async function extractCryptoFromQuery(
 ): Promise<string> {
 	try {
 		const genAI = new GoogleGenerativeAI(geminiKey);
-		const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+		const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
 		const extractionPrompt = `
 You are a cryptocurrency expert. Analyze the following user query and extract the primary cryptocurrency they want to analyze.

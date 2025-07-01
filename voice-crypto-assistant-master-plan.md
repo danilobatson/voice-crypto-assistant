@@ -22,7 +22,7 @@
 
 ### **Timeline Target: 22 Minutes**
 - Setup: 4 minutes
-- AWS Polly: 6 minutes  
+- AWS Polly: 6 minutes
 - Core Features: 8 minutes
 - Deploy & Test: 4 minutes
 
@@ -163,29 +163,29 @@ export async function synthesizeSpeech({
     });
 
     const response = await pollyClient.send(command);
-    
+
     if (response.AudioStream) {
       // Convert stream to base64 for browser playback
       const chunks: Uint8Array[] = [];
       const reader = response.AudioStream.getReader();
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         chunks.push(value);
       }
-      
+
       const audioData = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
       let offset = 0;
       for (const chunk of chunks) {
         audioData.set(chunk, offset);
         offset += chunk.length;
       }
-      
+
       const base64Audio = Buffer.from(audioData).toString('base64');
       return `data:audio/mp3;base64,${base64Audio}`;
     }
-    
+
     throw new Error('No audio stream received');
   } catch (error) {
     console.error('Error synthesizing speech:', error);
@@ -334,15 +334,15 @@ export function VoiceTest() {
   return (
     <Card className="p-6 max-w-md mx-auto">
       <h3 className="text-lg font-semibold mb-4">Voice Test (AWS Polly)</h3>
-      
+
       <div className="space-y-4">
         <Input
           value={testText}
           onChange={(e) => setTestText(e.target.value)}
           placeholder="Enter text to speak..."
         />
-        
-        <Button 
+
+        <Button
           onClick={handleSpeak}
           disabled={!testText.trim()}
           className="w-full"
@@ -359,11 +359,11 @@ export function VoiceTest() {
             </>
           )}
         </Button>
-        
+
         {error && (
           <p className="text-red-500 text-sm">{error}</p>
         )}
-        
+
         {isSpeaking && (
           <p className="text-blue-500 text-sm">🔊 Speaking...</p>
         )}
@@ -433,7 +433,7 @@ export async function analyzeCryptoQuery({
   socialData
 }: CryptoAnalysisRequest): Promise<CryptoAnalysisResponse> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
     const prompt = `
 You are a professional crypto analyst with access to real-time social sentiment data.
@@ -469,7 +469,7 @@ Format your response as JSON with these exact keys:
 
     // Parse JSON response
     const analysisData = JSON.parse(text);
-    
+
     return {
       summary: analysisData.summary || 'Analysis completed',
       insights: analysisData.insights || [],
@@ -480,7 +480,7 @@ Format your response as JSON with these exact keys:
     };
   } catch (error) {
     console.error('Error analyzing crypto query:', error);
-    
+
     // Fallback response
     return {
       summary: 'Unable to analyze the current market conditions.',
@@ -495,8 +495,8 @@ Format your response as JSON with these exact keys:
 
 export async function generateInsightSummary(cryptoSymbol: string, socialMetrics: any): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-    
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+
     const prompt = `
 Generate a brief, conversational summary for ${cryptoSymbol} based on this social data:
 ${JSON.stringify(socialMetrics, null, 2)}
@@ -562,7 +562,7 @@ export interface SocialSentimentData {
 
 async function makeRequest(endpoint: string): Promise<any> {
   const url = `${LUNARCRUSH_API_BASE}${endpoint}`;
-  
+
   try {
     const response = await fetch(url, {
       headers: {
@@ -586,13 +586,13 @@ export async function getCryptoMetrics(symbol: string): Promise<CryptoMetrics | 
   try {
     // Get coin data
     const coinsData = await makeRequest(`/coins/list/v2?symbol=${symbol.toUpperCase()}&limit=1`);
-    
+
     if (!coinsData.data || coinsData.data.length === 0) {
       return null;
     }
 
     const coin = coinsData.data[0];
-    
+
     return {
       symbol: coin.symbol || symbol.toUpperCase(),
       name: coin.name || symbol,
@@ -613,13 +613,13 @@ export async function getCryptoMetrics(symbol: string): Promise<CryptoMetrics | 
 export async function getSocialSentiment(symbol: string): Promise<SocialSentimentData | null> {
   try {
     const topicData = await makeRequest(`/topic/${symbol.toLowerCase()}/v1`);
-    
+
     if (!topicData.data) {
       return null;
     }
 
     const data = topicData.data;
-    
+
     return {
       symbol: symbol.toUpperCase(),
       sentiment: data.sentiment || 50,
@@ -639,7 +639,7 @@ export async function getSocialSentiment(symbol: string): Promise<SocialSentimen
 export async function getTrendingCryptos(limit: number = 10): Promise<CryptoMetrics[]> {
   try {
     const data = await makeRequest(`/coins/list/v2?sort=galaxy_score&limit=${limit}`);
-    
+
     if (!data.data) {
       return [];
     }
@@ -725,7 +725,7 @@ interface UseVoiceRecognitionReturn {
 
 export function useVoiceRecognition(): UseVoiceRecognitionReturn {
   const [error, setError] = useState<string | null>(null);
-  
+
   const {
     transcript,
     listening,
@@ -826,7 +826,7 @@ export function VoiceAssistant() {
   const handleVoiceInput = async () => {
     if (isListening) {
       stopListening();
-      
+
       if (transcript.trim()) {
         await processQuery(transcript);
       }
@@ -838,7 +838,7 @@ export function VoiceAssistant() {
 
   const processQuery = async (query: string) => {
     setIsProcessing(true);
-    
+
     try {
       // Extract crypto symbol from query (simple regex)
       const cryptoMatch = query.match(/\b(bitcoin|btc|ethereum|eth|solana|sol|cardano|ada|polkadot|dot)\b/i);
@@ -939,7 +939,7 @@ export function VoiceAssistant() {
                 </Button>
               )}
             </div>
-            
+
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-sm">{lastResponse}</p>
               {isSpeaking && (
@@ -956,7 +956,7 @@ export function VoiceAssistant() {
         {analysisData && (
           <div className="space-y-3">
             <h3 className="font-semibold">Analysis Summary:</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Badge variant={
@@ -967,7 +967,7 @@ export function VoiceAssistant() {
                 </Badge>
                 <p className="text-sm mt-1">Sentiment</p>
               </div>
-              
+
               <div>
                 <Badge variant="outline">
                   {analysisData.confidence}% confident
@@ -1031,9 +1031,9 @@ export default function Home() {
           Powered by Google Gemini AI, AWS Polly, and LunarCrush real-time social data
         </p>
       </div>
-      
+
       <VoiceAssistant />
-      
+
       <div className="text-center mt-8 text-sm text-gray-500">
         <p>Built with Next.js, TypeScript, AWS Polly, Google Gemini, and LunarCrush MCP</p>
       </div>
@@ -1174,7 +1174,7 @@ cat << 'EOF'
 Run these commands with your actual API keys:
 
 vercel env add AWS_ACCESS_KEY_ID
-vercel env add AWS_SECRET_ACCESS_KEY  
+vercel env add AWS_SECRET_ACCESS_KEY
 vercel env add AWS_REGION
 vercel env add NEXT_PUBLIC_GEMINI_API_KEY
 vercel env add NEXT_PUBLIC_LUNARCRUSH_API_KEY
@@ -1187,7 +1187,7 @@ EOF
 echo ""
 echo "⚠️  You need to add your actual API keys to Vercel environment variables"
 echo "📝 AWS keys from your AWS account"
-echo "📝 Gemini API key from Google AI Studio"  
+echo "📝 Gemini API key from Google AI Studio"
 echo "📝 LunarCrush API key from LunarCrush developers portal"
 echo ""
 echo "Press Enter when environment variables are configured..."
