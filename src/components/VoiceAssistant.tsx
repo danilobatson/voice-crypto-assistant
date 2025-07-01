@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useImperativeHandle } from 'react';
+import {
+	useState,
+	useEffect,
+	useRef,
+	useImperativeHandle,
+	forwardRef,
+} from 'react';
 import {
 	Box,
 	Card,
@@ -34,7 +40,6 @@ import {
 	Edit,
 	Send,
 	Cancel,
-
 	ExpandMore,
 	ExpandLess,
 	RecordVoiceOver,
@@ -46,11 +51,11 @@ import { useVoiceOutput } from '@/hooks/useVoiceOutput';
 import { AnalysisProgress } from './AnalysisProgress';
 import { AnalysisResults } from './AnalysisResults';
 
-interface VoiceAssistantProps {
-	ref?: React.Ref<{ startVoiceInput: () => void }>;
+interface VoiceAssistantRef {
+	startVoiceInput: () => void;
 }
 
-export function VoiceAssistant({ ref }: VoiceAssistantProps) {
+export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 	// State management
 	const [mounted, setMounted] = useState(false);
 	const [isProcessing, setIsProcessing] = useState(false);
@@ -757,7 +762,7 @@ export function VoiceAssistant({ ref }: VoiceAssistantProps) {
 											<Typography
 												variant='body1'
 												sx={{ mb: 2, fontStyle: 'italic' }}>
-												"{editedQuery || transcript }"
+												"{editedQuery || transcript}"
 											</Typography>
 
 											{/* IMMEDIATE Edit and Submit Options - Show as soon as transcript appears */}
@@ -849,4 +854,6 @@ export function VoiceAssistant({ ref }: VoiceAssistantProps) {
 			)}
 		</Box>
 	);
-}
+});
+
+VoiceAssistant.displayName = 'VoiceAssistant';
