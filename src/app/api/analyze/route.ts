@@ -44,13 +44,7 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: 'Query is required' }, { status: 400 });
 		}
 
-		// Let Gemini extract and determine the cryptocurrency from the query
-		// This is more flexible and future-proof than hardcoded regex patterns
-		const symbol = await extractCryptoFromQuery(query, geminiKey);
-
-		console.log(`🚀 Starting server-side MCP analysis for ${symbol}`);
-
-		// Step 1: Create and connect MCP client
+		// Step 1: Get API keys first
 		const lunarKey = process.env.LUNARCRUSH_API_KEY;
 		const geminiKey =
 			process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY;
@@ -66,6 +60,13 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		// Step 2: Let Gemini extract and determine the cryptocurrency from the query
+		// This is more flexible and future-proof than hardcoded regex patterns
+		const symbol = await extractCryptoFromQuery(query, geminiKey);
+
+		console.log(`🚀 Starting server-side MCP analysis for ${symbol}`);
+
+		// Step 3: Create and connect MCP client
 		client = await createMCPClient(lunarKey);
 		const genAI = new GoogleGenerativeAI(geminiKey);
 		const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 			`📋 Available MCP tools: ${tools.map((t: any) => t.name).join(', ')}`
 		);
 
-		// Step 2: Let Gemini choose which tools to use
+		// Step 4: Let Gemini choose which tools to use
 		const orchestrationPrompt = createOrchestrationPrompt(symbol, tools);
 		console.log(`🤖 Letting Gemini choose tools for ${symbol} analysis...`);
 
@@ -87,21 +88,21 @@ export async function POST(request: NextRequest) {
 		);
 		const orchestrationText = orchestrationResult.response.text();
 
-		// Step 3: Execute the tool calls
+		// Step 5: Execute the tool calls
 		const gatheredData = await executeToolCalls(
 			client,
 			orchestrationText,
 			symbol
 		);
 
-		// Step 4: Let Gemini analyze the gathered data
+		// Step 6: Let Gemini analyze the gathered data
 		const analysisPrompt = createAnalysisPrompt(symbol, gatheredData);
 		console.log('🧠 Generating final analysis...');
 
 		const analysisResult = await model.generateContent(analysisPrompt);
 		const analysisText = analysisResult.response.text();
 
-		// Step 5: Parse and return the analysis
+		// Step 7: Parse and return the analysis
 		const analysisData = parseAnalysisResponse(
 			analysisText,
 			symbol,
@@ -287,7 +288,7 @@ Analyze the gathered data to understand:
    - Market capitalization and relative market strength
    - Performance metrics vs major cryptocurrencies
 
-2. **SOCIAL INTELLIGENCE** 
+2. **SOCIAL INTELLIGENCE**
    - Community sentiment and engagement trends
    - Social mentions velocity and quality
    - Influencer activity and community growth
@@ -321,7 +322,7 @@ Respond with a JSON object in this exact format:
   "key_metrics": {
     "price": "actual price from MCP data or 0",
     "galaxy_score": "score from data or N/A",
-    "alt_rank": "rank from data or N/A", 
+    "alt_rank": "rank from data or N/A",
     "social_dominance": "dominance from data or N/A",
     "market_cap": "cap from data or 0",
     "volume_24h": "volume from data or 0",
@@ -345,7 +346,7 @@ Respond with a JSON object in this exact format:
   }
 }
 
-IMPORTANT: 
+IMPORTANT:
 - Extract real values from the gathered data - do not use placeholder values
 - If chart data is available, format it properly for visualization
 - Focus on educational insights that explain market behavior
@@ -446,7 +447,10 @@ function transformChartData(
 }
 
 // Intelligent crypto extraction using Gemini AI
-async function extractCryptoFromQuery(query: string, geminiKey: string): Promise<string> {
+async function extractCryptoFromQuery(
+	query: string,
+	geminiKey: string
+): Promise<string> {
 	try {
 		const genAI = new GoogleGenerativeAI(geminiKey);
 		const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -475,7 +479,7 @@ Respond with ONLY the cryptocurrency symbol (e.g., BTC, ETH, SOL, etc.) - no oth
 
 		const result = await model.generateContent(extractionPrompt);
 		const symbol = result.response.text().trim().toUpperCase();
-		
+
 		// Validate the symbol is reasonable (letters only, 2-10 characters)
 		if (/^[A-Z]{2,10}$/.test(symbol)) {
 			console.log(`🎯 Gemini extracted cryptocurrency: ${symbol}`);
