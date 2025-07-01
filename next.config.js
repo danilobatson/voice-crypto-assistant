@@ -1,10 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    optimizePackageImports: ['@mantine/core', '@mantine/hooks'],
+  reactStrictMode: true,
+  swcMinify: true,
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
-  // Ensure CSS is handled properly
-  transpilePackages: ['@mantine/core', '@mantine/hooks', '@mantine/notifications'],
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+        ],
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig
