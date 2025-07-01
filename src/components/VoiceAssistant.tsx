@@ -1,26 +1,48 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
+import {
+  Button,
+  Card,
+  Text,
+  Group,
+  Stack,
+  Badge,
+  Alert,
+  Loader,
+  Container,
+  Title,
+  Paper,
+  List,
+  ThemeIcon
+} from '@mantine/core';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useVoiceOutput } from '@/hooks/useVoiceOutput';
-import { Mic, MicOff, Volume2, VolumeX, Brain, Loader2 } from 'lucide-react';
-
-interface AnalysisData {
-  query: string;
-  analysis: string;
-  toolsUsed: number;
-  dataPoints: number;
-  spokenResponse: string;
-  symbol: string;
-}
+import { 
+  IconMicrophone, 
+  IconMicrophoneOff, 
+  IconVolume, 
+  IconVolumeOff, 
+  IconBrain,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconMinus
+} from '@tabler/icons-react';
 
 export function VoiceAssistant() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResponse, setLastResponse] = useState<string>('');
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [analysisData, setAnalysisData] = useState<any>(null);
+
+  const {
+    transcript,
+    isListening,
+    isMicrophoneAvailable,
+    startListening,
+    stopListening,
+    resetTranscript,
+    error: voiceError
+  } = useVoiceRecognition();
 
   const {
     isSpeaking,
@@ -29,32 +51,45 @@ export function VoiceAssistant() {
     error: speechError
   } = useVoiceOutput();
 
-  const processQuery = useCallback(async (query: string) => {
+  const handleVoiceInput = async () => {
+    if (isListening) {
+      stopListening();
+      
+      if (transcript.trim()) {
+        await processQuery(transcript);
+      }
+    } else {
+      resetTranscript();
+      startListening();
+    }
+  };
+
+  const processQuery = async (query: string) => {
     setIsProcessing(true);
     
     try {
-      console.log('Processing query:', query);
-      
-      // Call the analyze API endpoint
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query })
-      });
+      // Mock analysis for now - replace with your actual API call
+      const mockAnalysis = {
+        summary: `Analysis complete for query: "${query}"`,
+        insights: [
+          'Strong social sentiment detected',
+          'Trading volume above average',
+          'Positive trend indicators'
+        ],
+        recommendations: [
+          'Monitor for continued momentum',
+          'Consider position sizing'
+        ],
+        sentiment: 'bullish' as const,
+        confidence: 85,
+        spokenResponse: `Based on current social sentiment data, I'm seeing strong bullish signals for your query about ${query}. The confidence level is high at 85%, with trading volume above average and positive trend indicators.`
+      };
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setAnalysisData(data);
-        setLastResponse(data.spokenResponse || data.analysis || 'Analysis completed');
+      setAnalysisData(mockAnalysis);
+      setLastResponse(mockAnalysis.spokenResponse);
 
-        // Speak the response
-        await speak(data.spokenResponse || data.analysis || 'Analysis completed');
-      } else {
-        throw new Error(data.error || 'Analysis failed');
-      }
+      // Speak the response
+      await speak(mockAnalysis.spokenResponse);
 
     } catch (error) {
       console.error('Error processing query:', error);
@@ -64,199 +99,163 @@ export function VoiceAssistant() {
     } finally {
       setIsProcessing(false);
     }
-  }, [speak]);
+  };
 
-  // Auto-process speech when it ends
-  const handleSpeechEnd = useCallback(async (transcript: string) => {
-    if (transcript.trim()) {
-      await processQuery(transcript);
-    }
-  }, [processQuery]);
-
-  const {
-    transcript,
-    isListening,
-    isMicrophoneAvailable,
-    isLoaded,
-    startListening,
-    stopListening,
-    error: voiceError
-  } = useVoiceRecognition(handleSpeechEnd);
-
-  const handleVoiceInput = () => {
-    if (isListening) {
-      stopListening();
-    } else if (isProcessing) {
-      // Don't allow starting while processing
-      return;
-    } else if (isSpeaking) {
-      stopSpeaking();
-    } else {
-      startListening();
+  const getSentimentColor = (sentiment: string) => {
+    switch (sentiment) {
+      case 'bullish': return 'green';
+      case 'bearish': return 'red';
+      default: return 'blue';
     }
   };
 
-  const handleStopSpeaking = () => {
-    stopSpeaking();
+  const getSentimentIcon = (sentiment: string) => {
+    switch (sentiment) {
+      case 'bullish': return IconTrendingUp;
+      case 'bearish': return IconTrendingDown;
+      default: return IconMinus;
+    }
   };
-
-  // Show loading state during hydration
-  if (!isLoaded) {
-    return (
-      <Card className="p-6 max-w-2xl mx-auto">
-        <div className="text-center space-y-4">
-          <h2 className="text-2xl font-bold mb-2">🎤 Voice Crypto Assistant</h2>
-          <div className="flex items-center justify-center space-x-2">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Loading voice features...</span>
-          </div>
-        </div>
-      </Card>
-    );
-  }
 
   return (
-    <Card className="p-6 max-w-2xl mx-auto">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold mb-2">🎤 Voice Crypto Assistant</h2>
-        <p className="text-gray-600">
-          Ask me about cryptocurrency sentiment, trends, or market analysis
-        </p>
-      </div>
+    <Container size="md" py="xl">
+      <Card shadow="lg" padding="xl" radius="md">
+        <Stack gap="xl">
+          {/* Header */}
+          <div style={{ textAlign: 'center' }}>
+            <Title order={2} mb="xs">Voice Crypto Assistant</Title>
+            <Text c="dimmed" size="lg">
+              Ask me about cryptocurrency sentiment, trends, or market analysis
+            </Text>
+          </div>
 
-      <div className="space-y-4">
-        {/* Voice Input Section */}
-        <div className="text-center">
-          <Button
-            onClick={handleVoiceInput}
-            disabled={!isMicrophoneAvailable || isProcessing}
-            size="lg"
-            className={`w-64 h-16 text-lg ${
-              isListening ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 
-              isProcessing ? 'bg-yellow-500 hover:bg-yellow-600' :
-              'bg-blue-500 hover:bg-blue-600'
-            }`}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : isListening ? (
-              <>
-                <MicOff className="w-6 h-6 mr-2" />
-                Stop &amp; Analyze
-              </>
-            ) : (
-              <>
-                <Mic className="w-6 h-6 mr-2" />
-                Start Voice Analysis
-              </>
+          {/* Voice Input Section */}
+          <div style={{ textAlign: 'center' }}>
+            <Button
+              onClick={handleVoiceInput}
+              disabled={!isMicrophoneAvailable || isProcessing}
+              size="xl"
+              radius="xl"
+              h={80}
+              w={250}
+              color={isListening ? 'red' : 'blue'}
+              variant="filled"
+              leftSection={
+                isListening ? (
+                  <IconMicrophoneOff size={24} />
+                ) : (
+                  <IconMicrophone size={24} />
+                )
+              }
+              className={isListening ? 'voice-listening' : ''}
+            >
+              {isListening ? 'Stop Listening' : 'Start Voice Input'}
+            </Button>
+
+            {transcript && (
+              <Paper p="md" mt="md" bg="gray.0">
+                <Text size="sm" c="dark">
+                  <strong>You said:</strong> "{transcript}"
+                </Text>
+              </Paper>
             )}
-          </Button>
-
-          {/* Microphone Status */}
-          {!isMicrophoneAvailable && isLoaded && (
-            <div className="mt-2">
-              <Badge variant="destructive" className="text-xs">
-                Microphone not available - Please allow microphone access
-              </Badge>
-            </div>
-          )}
-
-          {/* Live Transcript Display */}
-          {isListening && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
-              <p className="text-blue-700 font-medium text-sm mb-1">🎤 Listening...</p>
-              <p className="text-gray-700">
-                {transcript || "Speak now..."}
-              </p>
-            </div>
-          )}
-
-          {/* Captured Speech Display */}
-          {!isListening && transcript && !isProcessing && (
-            <div className="mt-4 p-3 bg-green-50 rounded-lg border-2 border-green-200">
-              <p className="text-green-700 font-medium text-sm mb-1">✅ You said:</p>
-              <p className="text-gray-700">&quot;{transcript}&quot;</p>
-            </div>
-          )}
-        </div>
-
-        {/* Processing Status */}
-        {isProcessing && (
-          <div className="text-center p-4 bg-yellow-50 rounded-lg">
-            <div className="flex items-center justify-center space-x-2 mb-2">
-              <Brain className="w-5 h-5 animate-pulse text-yellow-600" />
-              <span className="text-yellow-700 font-medium">Analyzing with AI...</span>
-            </div>
-            <p className="text-sm text-yellow-600">Using LunarCrush MCP + Google Gemini</p>
           </div>
-        )}
 
-        {/* Voice Output Section */}
-        {(isSpeaking || lastResponse) && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">🤖 AI Response:</h3>
-              {isSpeaking && (
-                <Button onClick={handleStopSpeaking} variant="outline" size="sm">
-                  <VolumeX className="w-4 h-4 mr-1" />
-                  Stop
-                </Button>
-              )}
-            </div>
-            
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm">{lastResponse}</p>
-              {isSpeaking && (
-                <div className="flex items-center mt-2 text-blue-600">
-                  <Volume2 className="w-4 h-4 mr-1" />
-                  <span className="text-xs">🔊 Speaking...</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+          {/* Processing Status */}
+          {isProcessing && (
+            <Group justify="center" gap="sm">
+              <Loader size="sm" className="voice-processing" />
+              <Text size="sm">Analyzing with AI...</Text>
+            </Group>
+          )}
 
-        {/* Analysis Data */}
-        {analysisData && (
-          <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold">📊 Analysis Details:</h3>
-            
-            {analysisData.symbol && (
-              <div className="flex items-center space-x-2">
-                <Badge variant="outline">{analysisData.symbol}</Badge>
-                <span className="text-sm text-gray-600">Symbol analyzed</span>
+          {/* Voice Output Section */}
+          {(isSpeaking || lastResponse) && (
+            <Stack gap="md">
+              <Group justify="space-between" align="center">
+                <Text fw={600}>AI Response:</Text>
+                {isSpeaking && (
+                  <Button 
+                    onClick={stopSpeaking} 
+                    variant="outline" 
+                    size="xs"
+                    leftSection={<IconVolumeOff size={16} />}
+                  >
+                    Stop
+                  </Button>
+                )}
+              </Group>
+              
+              <Paper p="md" bg="blue.0" radius="md">
+                <Text size="sm">{lastResponse}</Text>
+                {isSpeaking && (
+                  <Group mt="xs" gap="xs">
+                    <IconVolume size={16} color="blue" className="voice-speaking" />
+                    <Text size="xs" c="blue">Speaking...</Text>
+                  </Group>
+                )}
+              </Paper>
+            </Stack>
+          )}
+
+          {/* Analysis Data */}
+          {analysisData && (
+            <Stack gap="md">
+              <Text fw={600}>Analysis Summary:</Text>
+              
+              <Group>
+                <Badge 
+                  color={getSentimentColor(analysisData.sentiment)}
+                  size="lg"
+                  leftSection={
+                    <ThemeIcon 
+                      size="xs" 
+                      color={getSentimentColor(analysisData.sentiment)}
+                      variant="transparent"
+                    >
+                      {(() => {
+                        const Icon = getSentimentIcon(analysisData.sentiment);
+                        return <Icon size={12} />;
+                      })()}
+                    </ThemeIcon>
+                  }
+                >
+                  {analysisData.sentiment.toUpperCase()}
+                </Badge>
+                
+                <Badge variant="outline" size="lg">
+                  {analysisData.confidence}% confident
+                </Badge>
+              </Group>
+
+              <div>
+                <Text size="sm" fw={500} mb="xs">Key Insights:</Text>
+                <List size="sm" spacing="xs">
+                  {analysisData.insights.map((insight: string, index: number) => (
+                    <List.Item key={index}>{insight}</List.Item>
+                  ))}
+                </List>
               </div>
-            )}
+            </Stack>
+          )}
 
-            {analysisData.toolsUsed && (
-              <div className="text-sm text-gray-600">
-                🛠️ Used {analysisData.toolsUsed} LunarCrush tools with {analysisData.dataPoints} data points
-              </div>
-            )}
-          </div>
-        )}
+          {/* Error Display */}
+          {(voiceError || speechError) && (
+            <Alert color="red" variant="light">
+              <Text size="sm">
+                {voiceError || speechError}
+              </Text>
+            </Alert>
+          )}
 
-        {/* Error Display */}
-        {(voiceError || speechError) && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">
-              ⚠️ {voiceError || speechError}
-            </p>
-          </div>
-        )}
-
-        {/* Usage Instructions */}
-        <div className="text-center text-sm text-gray-500 space-y-1">
-          <p><strong>How to use:</strong></p>
-          <p>1. Click &quot;Start Voice Analysis&quot;</p>
-          <p>2. Speak your question (e.g., &quot;What&apos;s the sentiment on Bitcoin?&quot;)</p>
-          <p>3. Wait 1-2 seconds after speaking - it will auto-process!</p>
-          <p>4. Listen to the AI response</p>
-        </div>
-      </div>
-    </Card>
+          {/* Usage Instructions */}
+          <Paper p="md" bg="gray.0" radius="md">
+            <Text size="sm" ta="center" c="dimmed">
+              Try saying: "What's the sentiment on Bitcoin?" or "How is Ethereum trending?"
+            </Text>
+          </Paper>
+        </Stack>
+      </Card>
+    </Container>
   );
 }

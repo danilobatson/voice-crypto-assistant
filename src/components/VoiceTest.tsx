@@ -1,15 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { 
+  Button, 
+  Card, 
+  TextInput, 
+  Text, 
+  Group,
+  Alert,
+  Loader
+} from '@mantine/core';
 import { useVoiceOutput } from '@/hooks/useVoiceOutput';
-import { Volume2, VolumeX, Mic } from 'lucide-react';
+import { IconVolume, IconVolumeOff } from '@tabler/icons-react';
 
 export function VoiceTest() {
-  const [testText, setTestText] = useState('Hello! This is a test of browser speech synthesis for the Voice Crypto Assistant.');
+  const [testText, setTestText] = useState('Hello! This is a test of browser voice synthesis.');
   const { isSpeaking, speak, stop, error } = useVoiceOutput();
 
   const handleSpeak = () => {
@@ -21,76 +26,47 @@ export function VoiceTest() {
   };
 
   return (
-    <Card className="p-6 max-w-2xl mx-auto">
-      <div className="text-center mb-6">
-        <h3 className="text-xl font-semibold mb-2">🎤 Voice Test Component</h3>
-        <p className="text-sm text-gray-600">
-          Tests browser speech synthesis - works on all devices, zero setup required
-        </p>
-      </div>
+    <Card 
+      shadow="md" 
+      padding="xl" 
+      radius="md" 
+      style={{ maxWidth: '500px', margin: '0 auto' }}
+    >
+      <Text size="xl" fw={600} mb="md" ta="center">
+        Voice Test (Browser Speech)
+      </Text>
       
-      <div className="space-y-4">
-        {/* Text Input */}
-        <div>
-          <label className="block text-sm font-medium mb-2">Text to Speak:</label>
-          <Input
-            value={testText}
-            onChange={(e) => setTestText(e.target.value)}
-            placeholder="Enter text to speak..."
-            className="w-full"
-          />
-        </div>
-
-        {/* Speak Button */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <TextInput
+          value={testText}
+          onChange={(e) => setTestText(e.target.value)}
+          placeholder="Enter text to speak..."
+          size="md"
+        />
+        
         <Button 
           onClick={handleSpeak}
           disabled={!testText.trim()}
-          className="w-full h-12"
-          variant={isSpeaking ? "destructive" : "default"}
+          size="md"
+          leftSection={isSpeaking ? <IconVolumeOff size={18} /> : <IconVolume size={18} />}
+          color={isSpeaking ? "red" : "blue"}
+          variant={isSpeaking ? "filled" : "filled"}
         >
-          {isSpeaking ? (
-            <>
-              <VolumeX className="w-5 h-5 mr-2" />
-              Stop Speaking
-            </>
-          ) : (
-            <>
-              <Volume2 className="w-5 h-5 mr-2" />
-              Test Voice Synthesis
-            </>
-          )}
+          {isSpeaking ? 'Stop Speaking' : 'Test Voice'}
         </Button>
-
-        {/* Status Display */}
-        <div className="space-y-2">
-          {isSpeaking && (
-            <div className="flex items-center justify-center space-x-2 p-3 bg-blue-50 rounded-lg">
-              <Mic className="w-4 h-4 text-blue-600 animate-pulse" />
-              <span className="text-blue-700 text-sm">🔊 Speaking with browser synthesis...</span>
-            </div>
-          )}
-          
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">⚠️ {error}</p>
-            </div>
-          )}
-
-          {!isSpeaking && !error && (
-            <div className="text-center">
-              <Badge variant="outline" className="text-green-600">
-                ✅ Browser voice synthesis ready
-              </Badge>
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="text-xs text-gray-500 text-center space-y-1">
-          <p>🌐 Uses browser Speech Synthesis API</p>
-          <p>📱 Works on desktop and mobile browsers</p>
-          <p>⚡ Zero setup required - no API keys needed</p>
-        </div>
+        
+        {error && (
+          <Alert color="red" variant="light">
+            <Text size="sm">{error}</Text>
+          </Alert>
+        )}
+        
+        {isSpeaking && (
+          <Group justify="center">
+            <Loader color="blue" size="sm" />
+            <Text size="sm" c="blue">🔊 Speaking...</Text>
+          </Group>
+        )}
       </div>
     </Card>
   );

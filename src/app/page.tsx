@@ -1,22 +1,40 @@
+import { Container, Title, Text, Stack } from '@mantine/core';
 import { VoiceAssistant } from '@/components/VoiceAssistant';
+import { Footer } from '@/components/Footer';
 
 export default function Home() {
   return (
-    <main className="container mx-auto p-8 min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Voice Crypto Assistant
-        </h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Powered by Google Gemini AI, LunarCrush MCP, and browser speech synthesis
-        </p>
-      </div>
+    <div style={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <Container size="lg" py="xl" style={{ flex: 1 }}>
+        <Stack gap="xl" align="center">
+          <div style={{ textAlign: 'center' }}>
+            <Title 
+              order={1} 
+              size="h1" 
+              style={{ 
+                background: 'linear-gradient(135deg, #228be6 0%, #51cf66 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                marginBottom: '1rem'
+              }}
+            >
+              Voice Crypto Assistant
+            </Title>
+            <Text size="xl" c="dimmed" maw={700} mx="auto">
+              Powered by Google Gemini AI, LunarCrush real-time social data, and modern browser speech APIs
+            </Text>
+          </div>
+          
+          <VoiceAssistant />
+        </Stack>
+      </Container>
       
-      <VoiceAssistant />
-      
-      <div className="text-center mt-8 text-sm text-gray-500">
-        <p>Built with Next.js, TypeScript, LunarCrush MCP, Google Gemini, and Speech APIs</p>
-      </div>
-    </main>
+      <Footer />
+    </div>
   );
 }
