@@ -1,5 +1,6 @@
 'use client';
 
+import 'regenerator-runtime/runtime';
 import { useRef } from 'react';
 import { Container, Box } from '@mui/material';
 import { VoiceAssistant } from '@/components/VoiceAssistant';
