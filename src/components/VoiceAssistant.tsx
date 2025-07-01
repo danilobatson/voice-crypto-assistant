@@ -14,7 +14,9 @@ import {
   Title,
   Paper,
   List,
-  ThemeIcon
+  ThemeIcon,
+  Box,
+  Transition
 } from '@mantine/core';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useVoiceOutput } from '@/hooks/useVoiceOutput';
@@ -26,13 +28,18 @@ import {
   IconBrain,
   IconTrendingUp,
   IconTrendingDown,
-  IconMinus
+  IconMinus,
+  IconEar,
+  IconMessageCircle,
+  IconCheck,
+  IconX
 } from '@tabler/icons-react';
 
 export function VoiceAssistant() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResponse, setLastResponse] = useState<string>('');
   const [analysisData, setAnalysisData] = useState<any>(null);
+  const [lastProcessedQuery, setLastProcessedQuery] = useState<string>('');
 
   const {
     transcript,
@@ -56,10 +63,12 @@ export function VoiceAssistant() {
       stopListening();
       
       if (transcript.trim()) {
+        setLastProcessedQuery(transcript.trim());
         await processQuery(transcript);
       }
     } else {
       resetTranscript();
+      setLastProcessedQuery('');
       startListening();
     }
   };
@@ -68,21 +77,25 @@ export function VoiceAssistant() {
     setIsProcessing(true);
     
     try {
+      // Extract crypto symbol from query (simple regex)
+      const cryptoMatch = query.match(/\b(bitcoin|btc|ethereum|eth|solana|sol|cardano|ada|polkadot|dot|dogecoin|doge)\b/i);
+      const symbol = cryptoMatch ? cryptoMatch[1] : 'bitcoin';
+
       // Mock analysis for now - replace with your actual API call
       const mockAnalysis = {
-        summary: `Analysis complete for query: "${query}"`,
+        summary: `Analysis complete for "${query}"`,
         insights: [
-          'Strong social sentiment detected',
-          'Trading volume above average',
-          'Positive trend indicators'
+          `Strong social sentiment detected for ${symbol.toUpperCase()}`,
+          'Trading volume above average in last 24h',
+          'Positive trend indicators from social media mentions'
         ],
         recommendations: [
           'Monitor for continued momentum',
-          'Consider position sizing'
+          'Consider position sizing based on social signals'
         ],
-        sentiment: 'bullish' as const,
-        confidence: 85,
-        spokenResponse: `Based on current social sentiment data, I'm seeing strong bullish signals for your query about ${query}. The confidence level is high at 85%, with trading volume above average and positive trend indicators.`
+        sentiment: Math.random() > 0.5 ? 'bullish' : Math.random() > 0.3 ? 'bearish' : 'neutral',
+        confidence: Math.floor(Math.random() * 30) + 70,
+        spokenResponse: `Based on current social sentiment data for ${symbol}, I'm seeing ${Math.random() > 0.5 ? 'strong bullish' : 'mixed'} signals. The confidence level is ${Math.floor(Math.random() * 30) + 70}%, with trading volume above average and ${Math.random() > 0.5 ? 'positive' : 'neutral'} trend indicators from social media analysis.`
       };
 
       setAnalysisData(mockAnalysis);
@@ -99,6 +112,11 @@ export function VoiceAssistant() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleClearQuery = () => {
+    resetTranscript();
+    setLastProcessedQuery('');
   };
 
   const getSentimentColor = (sentiment: string) => {
@@ -151,15 +169,78 @@ export function VoiceAssistant() {
             >
               {isListening ? 'Stop Listening' : 'Start Voice Input'}
             </Button>
+          </div>
 
-            {transcript && (
-              <Paper p="md" mt="md" bg="gray.0">
-                <Text size="sm" c="dark">
-                  <strong>You said:</strong> "{transcript}"
+          {/* Current Transcript Display */}
+          <Transition mounted={isListening && !!transcript} transition="slide-up" duration={200}>
+            {(styles) => (
+              <Paper 
+                p="lg" 
+                bg="blue.0" 
+                radius="md" 
+                style={{ 
+                  ...styles,
+                  border: '2px solid var(--mantine-color-blue-2)'
+                }}
+              >
+                <Group gap="sm" mb="xs">
+                  <ThemeIcon color="blue" variant="light" size="sm">
+                    <IconEar size={16} />
+                  </ThemeIcon>
+                  <Text size="sm" fw={600} c="blue.8">
+                    Listening... I heard:
+                  </Text>
+                  <Badge color="blue" variant="light" size="xs">LIVE</Badge>
+                </Group>
+                <Text size="md" c="blue.9" fw={500} style={{ fontStyle: 'italic' }}>
+                  "{transcript}"
                 </Text>
               </Paper>
             )}
-          </div>
+          </Transition>
+
+          {/* Recorded Query Display */}
+          <Transition mounted={!!lastProcessedQuery && !isListening} transition="slide-up" duration={300}>
+            {(styles) => (
+              <Paper 
+                p="lg" 
+                bg="green.0" 
+                radius="md" 
+                style={{ 
+                  ...styles,
+                  border: '2px solid var(--mantine-color-green-2)'
+                }}
+              >
+                <Group justify="space-between" align="flex-start">
+                  <Box style={{ flex: 1 }}>
+                    <Group gap="sm" mb="xs">
+                      <ThemeIcon color="green" variant="light" size="sm">
+                        <IconMessageCircle size={16} />
+                      </ThemeIcon>
+                      <Text size="sm" fw={600} c="green.8">
+                        Your Query Recorded:
+                      </Text>
+                      <Badge color="green" variant="light" size="xs" leftSection={<IconCheck size={10} />}>
+                        CAPTURED
+                      </Badge>
+                    </Group>
+                    <Text size="lg" c="green.9" fw={600}>
+                      "{lastProcessedQuery}"
+                    </Text>
+                  </Box>
+                  <Button
+                    onClick={handleClearQuery}
+                    variant="subtle"
+                    color="gray"
+                    size="xs"
+                    leftSection={<IconX size={12} />}
+                  >
+                    Clear
+                  </Button>
+                </Group>
+              </Paper>
+            )}
+          </Transition>
 
           {/* Processing Status */}
           {isProcessing && (
@@ -186,12 +267,12 @@ export function VoiceAssistant() {
                 )}
               </Group>
               
-              <Paper p="md" bg="blue.0" radius="md">
+              <Paper p="md" bg="orange.0" radius="md">
                 <Text size="sm">{lastResponse}</Text>
                 {isSpeaking && (
                   <Group mt="xs" gap="xs">
-                    <IconVolume size={16} color="blue" className="voice-speaking" />
-                    <Text size="xs" c="blue">Speaking...</Text>
+                    <IconVolume size={16} color="orange" className="voice-speaking" />
+                    <Text size="xs" c="orange">Speaking...</Text>
                   </Group>
                 )}
               </Paper>

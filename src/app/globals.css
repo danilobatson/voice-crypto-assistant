@@ -116,3 +116,55 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
+
+/* Enhanced voice recording animations */
+.voice-recording {
+  animation: pulse-recording 1.2s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(34, 139, 230, 0.4);
+}
+
+@keyframes pulse-recording {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(34, 139, 230, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(34, 139, 230, 0.6);
+  }
+}
+
+/* Transcript typing effect */
+.transcript-typing {
+  border-right: 2px solid #228be6;
+  animation: typing-cursor 1s infinite;
+}
+
+@keyframes typing-cursor {
+  0%, 50% {
+    border-color: #228be6;
+  }
+  51%, 100% {
+    border-color: transparent;
+  }
+}
+
+/* Query captured success animation */
+.query-captured {
+  animation: success-glow 0.6s ease-out;
+}
+
+@keyframes success-glow {
+  0% {
+    background-color: rgba(81, 207, 102, 0.1);
+    box-shadow: 0 0 0 rgba(81, 207, 102, 0.4);
+  }
+  50% {
+    background-color: rgba(81, 207, 102, 0.2);
+    box-shadow: 0 0 20px rgba(81, 207, 102, 0.4);
+  }
+  100% {
+    background-color: rgba(81, 207, 102, 0.1);
+    box-shadow: 0 0 0 rgba(81, 207, 102, 0.4);
+  }
+}
