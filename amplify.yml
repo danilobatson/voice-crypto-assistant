@@ -4,6 +4,8 @@ environment:
     NODE_OPTIONS: '--max-old-space-size=4096'
     NEXT_TELEMETRY_DISABLED: 1
     NPM_CONFIG_UNSAFE_PERM: true
+    # Ensure environment variables are available during build and runtime
+    ENV_DEBUG: 'true'
 frontend:
   phases:
     preBuild:
@@ -14,6 +16,11 @@ frontend:
         - nvm use 20
         - echo "Node version:" && node --version
         - echo "NPM version:" && npm --version
+        - echo "=== Environment Variables Debug ==="
+        - echo "Available environment variables with API or KEY:"
+        - env | grep -E "(API|KEY|GEMINI|LUNAR)" || echo "No API/KEY variables found"
+        - echo "All environment variables count:" && env | wc -l
+        - echo "=== End Environment Debug ==="
         - echo "Installing Yarn globally..."
         - npm install -g yarn
         - echo "Yarn version:" && yarn --version
