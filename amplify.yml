@@ -1,18 +1,20 @@
 version: 1
+environment:
+  variables:
+    NODE_OPTIONS: '--max-old-space-size=8192'
+    NEXT_TELEMETRY_DISABLED: 1
 frontend:
   phases:
     preBuild:
       commands:
-        - echo "Node version:" && node --version
-        - echo "Installing Yarn..."
-        - npm install -g yarn
-        - echo "Yarn version:" && yarn --version
-        - rm -rf node_modules yarn.lock
-        - yarn install --frozen-lockfile false
+        - nvm use 20
+        - node --version
+        - npm --version
+        - npm ci
+        - npx next telemetry disable
     build:
       commands:
-        - echo "Building with Yarn..."
-        - yarn build
+        - npm run build
   artifacts:
     baseDirectory: .next
     files:
@@ -21,4 +23,3 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-      - .yarn/cache/**/*
