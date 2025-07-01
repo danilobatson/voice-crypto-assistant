@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 interface StructuredAPIResponse {
@@ -33,6 +33,14 @@ export function VoiceAPITest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  
+  // Voice output controls
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechUtterance, setSpeechUtterance] = useState<SpeechSynthesisUtterance | null>(null);
+  const [speechRate, setSpeechRate] = useState(1.3); // Faster default speed
+  const [showVolumeWarning, setShowVolumeWarning] = useState(false);
+  const [hasTestedVolume, setHasTestedVolume] = useState(false);
 
   const {
     transcript,
@@ -47,6 +55,19 @@ export function VoiceAPITest() {
     setIsClient(true);
   }, []);
 
+  // Show volume reminder after first speech attempt
+  useEffect(() => {
+    if (isSpeaking && !hasTestedVolume) {
+      setShowVolumeWarning(true);
+      setHasTestedVolume(true);
+      // Hide warning after 5 seconds
+      setTimeout(() => setShowVolumeWarning(false), 5000);
+    }
+  }, [isSpeaking, hasTestedVolume]);
+
+  // Check if speech synthesis is available
+  const speechSynthesisAvailable = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
   const startListening = () => {
     resetTranscript();
     SpeechRecognition.startListening({
@@ -57,6 +78,59 @@ export function VoiceAPITest() {
 
   const stopListening = () => {
     SpeechRecognition.stopListening();
+  };
+
+  const speakText = (text: string) => {
+    if (!speechSynthesisAvailable) return;
+
+    // Stop any current speech
+    stopSpeaking();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = speechRate; // Use adjustable speed
+    utterance.pitch = 1;
+    utterance.volume = 0.9; // Slightly louder
+    
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+    
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setSpeechUtterance(null);
+    };
+    
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setSpeechUtterance(null);
+    };
+
+    setSpeechUtterance(utterance);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (speechSynthesisAvailable && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      setSpeechUtterance(null);
+    }
+  };
+
+  const pauseSpeaking = () => {
+    if (speechSynthesisAvailable && window.speechSynthesis.speaking) {
+      window.speechSynthesis.pause();
+    }
+  };
+
+  const resumeSpeaking = () => {
+    if (speechSynthesisAvailable && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  };
+
+  const testVolume = () => {
+    speakText("Volume test. If you can hear this, your volume is working correctly.");
   };
 
   const testAPI = async (query: string) => {
@@ -91,13 +165,11 @@ export function VoiceAPITest() {
       
       setResponse(data);
       
-      // Speak the response using Web Speech API
-      if ('speechSynthesis' in window && data.spokenResponse) {
-        const utterance = new SpeechSynthesisUtterance(data.spokenResponse);
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        utterance.volume = 0.8;
-        window.speechSynthesis.speak(utterance);
+      // Auto-speak if enabled
+      if (autoSpeak && data.spokenResponse) {
+        setTimeout(() => {
+          speakText(data.spokenResponse);
+        }, 1000); // Small delay to let user see the results first
       }
       
     } catch (err) {
@@ -173,6 +245,83 @@ export function VoiceAPITest() {
       <h2>🎤 Voice Crypto Assistant</h2>
       <p>Ask about any cryptocurrency using your voice!</p>
       
+      {/* Voice Settings */}
+      <div className="settings-panel">
+        <div className="settings-row">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={autoSpeak}
+              onChange={(e) => setAutoSpeak(e.target.checked)}
+            />
+            <span>🔊 Auto-speak responses</span>
+          </label>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="speechRate" style={{ fontSize: '0.875rem' }}>
+              🏃 Speed:
+            </label>
+            <input
+              id="speechRate"
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.1"
+              value={speechRate}
+              onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+              style={{ width: '80px' }}
+            />
+            <span style={{ fontSize: '0.875rem', minWidth: '30px' }}>
+              {speechRate}x
+            </span>
+          </div>
+
+          <button
+            onClick={testVolume}
+            className="button"
+            style={{ 
+              background: '#17a2b8', 
+              fontSize: '0.875rem',
+              padding: '0.5rem 1rem'
+            }}
+          >
+            🔊 Test Volume
+          </button>
+        </div>
+        
+        {speechSynthesisAvailable ? (
+          <div style={{ marginTop: '0.5rem' }}>
+            <span className="status-indicator success">
+              ✅ Text-to-Speech Available
+            </span>
+          </div>
+        ) : (
+          <div style={{ marginTop: '0.5rem' }}>
+            <span className="status-indicator error">
+              ❌ Text-to-Speech Not Available
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Volume Warning */}
+      {showVolumeWarning && (
+        <div style={{ 
+          background: '#fff3cd', 
+          border: '1px solid #ffeaa7',
+          borderRadius: '6px',
+          padding: '1rem',
+          margin: '1rem 0',
+          animation: 'pulse 2s infinite'
+        }}>
+          <strong>🔊 Can't hear the audio?</strong>
+          <br />• Check your device volume is turned up
+          <br />• Make sure your speakers/headphones are connected
+          <br />• Click "Test Volume" to verify audio is working
+          <br />• Look for the 🎵 speaking animation below when audio plays
+        </div>
+      )}
+
       {/* Voice Input Section */}
       <div style={{ textAlign: 'center', margin: '2rem 0' }}>
         <button 
@@ -269,7 +418,6 @@ export function VoiceAPITest() {
             <strong>✅ AI Analysis Complete!</strong>
             <br />Cryptocurrency: <strong>{response.symbol}</strong>
             <br />Tools Used: {response.toolsUsed} | Data Points: {response.dataPoints}
-            <br />🔊 <em>AI response is being spoken aloud!</em>
           </div>
 
           {/* Recommendation Section */}
@@ -304,6 +452,87 @@ export function VoiceAPITest() {
             </div>
             <div>
               <strong>Reasoning:</strong> {response.reasoning}
+            </div>
+          </div>
+
+          {/* Spoken Response Section with Enhanced Audio Controls */}
+          <div className="voice-response-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#0c5460' }}>🔊 Voice Response</h3>
+              
+              {/* Audio Controls */}
+              <div className="audio-controls">
+                <button
+                  onClick={() => speakText(response.spokenResponse)}
+                  disabled={isSpeaking}
+                  className="button"
+                  style={{ 
+                    background: '#17a2b8', 
+                    fontSize: '0.875rem',
+                    padding: '0.5rem 1rem'
+                  }}
+                >
+                  {isSpeaking ? '🔊 Speaking...' : '▶️ Play Audio'}
+                </button>
+                
+                {isSpeaking && (
+                  <>
+                    <button
+                      onClick={pauseSpeaking}
+                      className="button"
+                      style={{ 
+                        background: '#ffc107', 
+                        color: '#212529',
+                        fontSize: '0.875rem',
+                        padding: '0.5rem 1rem'
+                      }}
+                    >
+                      ⏸️ Pause
+                    </button>
+                    
+                    <button
+                      onClick={stopSpeaking}
+                      className="button"
+                      style={{ 
+                        background: '#dc3545', 
+                        fontSize: '0.875rem',
+                        padding: '0.5rem 1rem'
+                      }}
+                    >
+                      ⏹️ Stop
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* Enhanced Speaking Status with Animation */}
+            {isSpeaking && (
+              <div className="speaking-indicator">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div className="audio-wave">
+                    🎵📢🔊
+                  </div>
+                  <div>
+                    <strong>Audio is playing at {speechRate}x speed!</strong>
+                    <br />Can't hear it? Check your volume or use the controls above.
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Spoken Response Text */}
+            <div className="voice-text">
+              {response.spokenResponse}
+            </div>
+            
+            <div style={{ 
+              marginTop: '0.5rem', 
+              fontSize: '0.875rem', 
+              color: '#6c757d',
+              fontStyle: 'italic'
+            }}>
+              💡 This is the text that gets read aloud at {speechRate}x speed. You can read it yourself or use the audio controls above.
             </div>
           </div>
 
@@ -367,7 +596,7 @@ export function VoiceAPITest() {
         </div>
       )}
 
-      {/* Instructions */}
+      {/* Enhanced Instructions */}
       <div style={{ 
         marginTop: '2rem', 
         padding: '1rem', 
@@ -375,18 +604,23 @@ export function VoiceAPITest() {
         borderRadius: '6px',
         fontSize: '0.875rem'
       }}>
-        <strong>🎯 How to use:</strong>
-        <br />1. Click "🎤 Start Voice Input"
-        <br />2. Say: "What is the sentiment on [Cryptocurrency]?"
-        <br />3. Click "🛑 Stop Listening" 
-        <br />4. Wait for AI analysis (10-30 seconds)
-        <br />5. Listen to the structured spoken response!
+        <strong>🎯 Voice Features:</strong>
+        <br />• <strong>Speed Control:</strong> Adjust speech speed from 0.5x to 2.0x
+        <br />• <strong>Volume Test:</strong> Click "Test Volume" to check audio
+        <br />• <strong>Visual Feedback:</strong> Look for 🎵📢🔊 when audio plays
+        <br />• <strong>Auto-speak:</strong> Toggle on/off to automatically hear responses
+        <br />• <strong>Full Control:</strong> Play, pause, or stop audio anytime
         <br /><br />
-        <strong>✨ New Features:</strong>
-        <br />• Gemini AI automatically detects cryptocurrency
-        <br />• Structured recommendation (BUY/SELL/HOLD)  
-        <br />• Real metrics from LunarCrush MCP
-        <br />• Confidence scores and detailed analysis
+        <strong>🎙️ Try saying:</strong>
+        <br />• "What's the sentiment on Bitcoin?"
+        <br />• "Should I buy Ethereum now?"
+        <br />• "How is Solana performing today?"
+        <br />• "Give me analysis on Cardano"
+        <br /><br />
+        <strong>🔊 Audio Tips:</strong>
+        <br />• Default speed is 1.3x (faster than normal)
+        <br />• Watch for the speaking animation when audio plays
+        <br />• Test your volume first if unsure about audio
       </div>
     </div>
   );

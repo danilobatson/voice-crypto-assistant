@@ -105,3 +105,186 @@ body {
   color: #0c5460;
   border: 1px solid #bee5eb;
 }
+
+/* Audio Controls Styling */
+.audio-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.audio-controls .button {
+  margin: 0;
+}
+
+.voice-response-section {
+  background: linear-gradient(135deg, #e8f4f8, #f0f9ff);
+  border: 1px solid #bee5eb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.speaking-indicator {
+  background: #d1ecf1;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  color: #0c5460;
+  font-size: 0.875rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.voice-text {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #bee5eb;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+/* Settings Panel */
+.settings-panel {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  border: 1px solid #dee2e6;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.status-indicator {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-indicator.success {
+  color: #28a745;
+}
+
+.status-indicator.error {
+  color: #dc3545;
+}
+
+/* Enhanced Audio Visual Feedback */
+.speaking-indicator {
+  background: linear-gradient(45deg, #d1ecf1, #bee5eb);
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  color: #0c5460;
+  font-size: 0.875rem;
+  border: 1px solid #bee5eb;
+  animation: speakingPulse 1.5s infinite;
+}
+
+@keyframes speakingPulse {
+  0% { 
+    background: linear-gradient(45deg, #d1ecf1, #bee5eb);
+    transform: scale(1);
+  }
+  50% { 
+    background: linear-gradient(45deg, #bee5eb, #d1ecf1);
+    transform: scale(1.02);
+  }
+  100% { 
+    background: linear-gradient(45deg, #d1ecf1, #bee5eb);
+    transform: scale(1);
+  }
+}
+
+.audio-wave {
+  font-size: 1.2rem;
+  animation: audioWave 1s infinite;
+}
+
+@keyframes audioWave {
+  0% { opacity: 1; }
+  25% { opacity: 0.7; }
+  50% { opacity: 1; }
+  75% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Speed Control Styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  background: #ddd;
+  border-radius: 5px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  background: #007bff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  background: #007bff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+/* Volume Warning Animation */
+@keyframes volumeWarning {
+  0% { background-color: #fff3cd; }
+  50% { background-color: #ffeaa7; }
+  100% { background-color: #fff3cd; }
+}
+
+/* Settings Panel Enhancements */
+.settings-panel {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .settings-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .audio-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
