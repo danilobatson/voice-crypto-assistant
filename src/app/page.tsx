@@ -1,14 +1,16 @@
-import { APITestComponent } from '@/components/APITestComponent';
+import { VoiceAPITest } from '@/components/VoiceAPITest';
 
 export default function Home() {
   return (
     <div className="container">
-      <h1 className="title">Voice Crypto Assistant</h1>
+      <h1 className="title">🎤 Voice Crypto Assistant</h1>
       <p className="subtitle">
-        Testing API Connection to LunarCrush MCP + Google Gemini
+        AI-powered cryptocurrency analysis with voice interface
+        <br />
+        Powered by Google Gemini AI and LunarCrush real-time data
       </p>
       
-      <APITestComponent />
+      <VoiceAPITest />
       
       <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.875rem', color: '#6c757d' }}>
         Built with Next.js, TypeScript, Google Gemini, and LunarCrush MCP

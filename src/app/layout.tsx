@@ -16,6 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script src="https://unpkg.com/regenerator-runtime@0.13.9/runtime.js"></script>
+      </head>
       <body className={inter.className}>
         {children}
       </body>

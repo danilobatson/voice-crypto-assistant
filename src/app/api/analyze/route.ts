@@ -53,14 +53,18 @@ async function createMCPClient(apiKey: string): Promise<Client> {
 }
 
 // Create tool orchestration prompt for Gemini
-function createOrchestrationPrompt(symbol: string, availableTools: unknown[]): string {
+function createOrchestrationPrompt(query: string, availableTools: unknown[]): string {
   return `
-You are a cryptocurrency analyst. I need you to analyze ${symbol.toUpperCase()} using the available LunarCrush MCP tools. Use a MAX of 4 tools to gather comprehensive data.
+You are a cryptocurrency analyst. I need you to analyze the cryptocurrency mentioned in this user query using the available LunarCrush MCP tools.
+
+USER QUERY: "${query}"
 
 AVAILABLE MCP TOOLS:
 ${JSON.stringify(availableTools, null, 2)}
 
-TASK: Create a plan to gather comprehensive data for ${symbol.toUpperCase()} analysis.
+TASK: 
+1. FIRST: Identify the cryptocurrency from the user query (Bitcoin, Ethereum, Solana, etc.)
+2. THEN: Create a plan to gather comprehensive data for that cryptocurrency using MAX 4 tools
 
 Based on the available tools, decide which tools to call and with what parameters to get:
 1. Current price and market data
@@ -77,7 +81,7 @@ Respond with a JSON array of tool calls in this exact format:
   }
 ]
 
-Be specific with parameters. Focus on ${symbol.toUpperCase()} data.
+Be specific with parameters. Use the cryptocurrency symbol or name as needed for each tool.
 `;
 }
 
@@ -117,24 +121,51 @@ async function executeToolCalls(client: Client, toolCalls: ToolCall[]): Promise<
   return results;
 }
 
-// Create analysis prompt for Gemini
-function createAnalysisPrompt(query: string, toolResults: ToolResult[]): string {
+// Create structured analysis prompt for Gemini
+function createStructuredAnalysisPrompt(query: string, toolResults: ToolResult[]): string {
   return `
 You are an expert cryptocurrency analyst. Based on the user's query and the following real data from LunarCrush MCP tools, provide a comprehensive analysis.
 
-User Query: "${query}"
+USER QUERY: "${query}"
 
-MCP Tool Results:
+MCP TOOL RESULTS:
 ${JSON.stringify(toolResults, null, 2)}
 
-Please provide a natural, conversational response that:
-1. Answers the user's specific question
-2. Highlights key insights from the social data
-3. Mentions any notable trends or sentiment patterns
-4. Uses a professional but conversational tone
-5. Is optimized for voice synthesis (natural speech patterns)
+INSTRUCTIONS:
+1. Identify the cryptocurrency symbol from the query and data
+2. Extract real metrics from the MCP tool results (not placeholder values)
+3. Provide a professional investment analysis
+4. Make recommendations based on the actual data
 
-Focus on the most interesting and actionable insights from the data. Keep it concise but informative.
+RESPOND WITH VALID JSON IN THIS EXACT FORMAT:
+{
+  "recommendation": "BUY|SELL|HOLD",
+  "confidence": 0-100,
+  "reasoning": "Brief explanation of the recommendation based on actual data",
+  "social_sentiment": "bullish|bearish|neutral",
+  "key_metrics": {
+    "price": "actual price from MCP data",
+    "galaxy_score": "score from data",
+    "alt_rank": "rank from data", 
+    "social_dominance": "dominance from data",
+    "market_cap": "cap from data",
+    "volume_24h": "volume from data",
+    "mentions": "mentions from data",
+    "engagements": "engagements/interactions from data",
+    "creators": "creators from data"
+  },
+  "ai_analysis": "Max 2 paragraph overview of the analysis. Concise and beginner friendly",
+  "miscellaneous": "Any other relevant insights",
+  "symbol": "cryptocurrency symbol (BTC, ETH, etc)",
+  "spokenResponse": "Natural conversational response optimized for voice synthesis (30-45 seconds when spoken)"
+}
+
+CRITICAL REQUIREMENTS:
+- Extract actual values from the MCP tool results, not placeholders
+- Base recommendation on real social sentiment and market data
+- Keep ai_analysis concise but informative
+- Make spokenResponse natural and conversational
+- Ensure all JSON is valid and properly formatted
 `;
 }
 
@@ -173,65 +204,123 @@ export async function POST(request: NextRequest) {
 
     // Step 3: Let Gemini decide which tools to use
     console.log('🧠 AI planning tool orchestration...');
-    const orchestrationPrompt = createOrchestrationPrompt(
-      query.includes('bitcoin') ? 'bitcoin' : 
-      query.includes('ethereum') ? 'ethereum' :
-      query.includes('solana') ? 'solana' : 'bitcoin',
-      tools
-    );
-
+    const orchestrationPrompt = createOrchestrationPrompt(query, tools);
     const orchestrationResponse = await model.generateContent(orchestrationPrompt);
-    const orchestrationText = orchestrationResponse.response.text();
+    const responseText = orchestrationResponse.response.text();
     
-    // Parse the JSON response
-    const toolCalls = JSON.parse(orchestrationText.replace(/```json|```/g, '').trim()) as ToolCall[];
-    console.log(`🎯 AI selected ${toolCalls.length} tools:`, toolCalls.map((t) => t.tool));
+    // Step 4: Extract tool calls from AI response
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    let toolCalls: ToolCall[] = [];
+    
+    if (jsonMatch) {
+      try {
+        toolCalls = JSON.parse(jsonMatch[0]);
+        console.log(`🛠️ Gemini selected ${toolCalls.length} tools`);
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse tool calls, using fallback');
+        // Fallback tool call
+        toolCalls = [
+          {
+            tool: "LunarCrush MCP:Topic",
+            args: { topic: "bitcoin" },
+            reason: "Get basic crypto data and sentiment"
+          }
+        ];
+      }
+    } else {
+      console.warn('⚠️ No tool calls found, using fallback');
+      toolCalls = [
+        {
+          tool: "LunarCrush MCP:Topic", 
+          args: { topic: "bitcoin" },
+          reason: "Get basic crypto data and sentiment"
+        }
+      ];
+    }
 
-    // Step 4: Execute tool calls
-    console.log('⚡ Executing MCP tools...');
+    // Step 5: Execute the MCP tool calls
+    console.log('⚡ Executing MCP tool calls...');
     const toolResults = await executeToolCalls(client, toolCalls);
-    const successfulResults = toolResults.filter(r => r.success);
-    console.log(`✅ ${successfulResults.length}/${toolResults.length} tools executed successfully`);
+    console.log(`✅ Completed ${toolResults.length} tool calls`);
 
-    // Step 5: Generate AI analysis
-    console.log('🧠 Generating AI analysis...');
-    const analysisPrompt = createAnalysisPrompt(query, toolResults);
+    // Step 6: Generate structured analysis with Gemini
+    console.log('🧠 Generating structured analysis...');
+    const analysisPrompt = createStructuredAnalysisPrompt(query, toolResults);
     const analysisResponse = await model.generateContent(analysisPrompt);
-    const finalAnalysis = analysisResponse.response.text();
+    const analysisText = analysisResponse.response.text();
+    
+    // Step 7: Parse the JSON response
+    let structuredAnalysis;
+    try {
+      // Extract JSON from response
+      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        structuredAnalysis = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
+    } catch (parseError) {
+      console.error('❌ Failed to parse structured analysis:', parseError);
+      // Fallback response
+      structuredAnalysis = {
+        recommendation: "HOLD",
+        confidence: 50,
+        reasoning: "Unable to complete full analysis due to parsing error",
+        social_sentiment: "neutral",
+        key_metrics: {
+          price: "N/A",
+          galaxy_score: "N/A",
+          alt_rank: "N/A",
+          social_dominance: "N/A",
+          market_cap: "N/A",
+          volume_24h: "N/A",
+          mentions: "N/A",
+          engagements: "N/A",
+          creators: "N/A"
+        },
+        ai_analysis: "Analysis completed but could not parse structured response. Please try again.",
+        miscellaneous: "System encountered parsing issues",
+        symbol: "BTC",
+        spokenResponse: "I apologize, but I encountered an issue processing the analysis. Please try asking about a specific cryptocurrency again."
+      };
+    }
 
     console.timeEnd('MCP Analysis');
-
+    
+    // Return the structured response
     return NextResponse.json({
       success: true,
-      query,
-      analysis: finalAnalysis,
+      ...structuredAnalysis,
       toolsUsed: toolCalls.length,
-      dataPoints: successfulResults.length,
-      spokenResponse: finalAnalysis,
-      symbol: query.includes('bitcoin') ? 'BTC' : 
-              query.includes('ethereum') ? 'ETH' :
-              query.includes('solana') ? 'SOL' : 'BTC'
+      dataPoints: toolResults.filter(r => r.success).length
     });
 
   } catch (error) {
     console.error('❌ MCP Analysis failed:', error);
-    console.timeEnd('MCP Analysis');
     
-    const fallbackResponse = `I apologize, but I'm having trouble connecting to the LunarCrush data right now. This could be due to API connectivity or rate limiting. Please try again in a moment.`;
-    
-    return NextResponse.json({
+    const fallbackResponse = {
       success: false,
       error: error instanceof Error ? error.message : 'Analysis failed',
-      spokenResponse: fallbackResponse
-    });
+      recommendation: "HOLD",
+      confidence: 0,
+      reasoning: "System error occurred during analysis",
+      social_sentiment: "neutral",
+      key_metrics: {},
+      ai_analysis: "Analysis could not be completed due to system error",
+      miscellaneous: "Please try again",
+      symbol: "BTC",
+      spokenResponse: "I apologize, but I'm having trouble analyzing the cryptocurrency data right now. Please try again in a moment."
+    };
+    
+    return NextResponse.json(fallbackResponse, { status: 500 });
   } finally {
-    // Clean up MCP client
+    // Clean up MCP client connection
     if (client) {
       try {
         await client.close();
-        console.log('🔄 MCP client closed');
-      } catch {
-        // Silent cleanup
+        console.log('🧹 MCP client connection closed');
+      } catch (cleanupError) {
+        console.warn('Warning: MCP client cleanup failed:', cleanupError);
       }
     }
   }
