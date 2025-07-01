@@ -6,6 +6,10 @@ environment:
     NPM_CONFIG_UNSAFE_PERM: true
     # Ensure environment variables are available during build and runtime
     ENV_DEBUG: 'true'
+    # AWS Amplify runtime environment variables
+    # These will be overridden by the ones set in the Amplify console
+    GEMINI_API_KEY: $GEMINI_API_KEY
+    LUNARCRUSH_API_KEY: $LUNARCRUSH_API_KEY
 frontend:
   phases:
     preBuild:
@@ -20,6 +24,9 @@ frontend:
         - echo "Available environment variables with API or KEY:"
         - env | grep -E "(API|KEY|GEMINI|LUNAR)" || echo "No API/KEY variables found"
         - echo "All environment variables count:" && env | wc -l
+        - echo "Checking if variables are accessible:"
+        - echo "GEMINI_API_KEY set: $([[ -n \"$GEMINI_API_KEY\" ]] && echo 'YES' || echo 'NO')"
+        - echo "LUNARCRUSH_API_KEY set: $([[ -n \"$LUNARCRUSH_API_KEY\" ]] && echo 'YES' || echo 'NO')"
         - echo "=== End Environment Debug ==="
         - echo "Installing Yarn globally..."
         - npm install -g yarn
@@ -37,6 +44,12 @@ frontend:
     build:
       commands:
         - echo "=== Build Phase ==="
+        - echo "Creating runtime environment file..."
+        - echo "GEMINI_API_KEY=$GEMINI_API_KEY" > .env.production
+        - echo "LUNARCRUSH_API_KEY=$LUNARCRUSH_API_KEY" >> .env.production
+        - echo "NODE_ENV=production" >> .env.production
+        - echo "Runtime environment file created:"
+        - cat .env.production | sed 's/=.*/=***/' # Hide actual values
         - echo "Starting Next.js build with Yarn..."
         - yarn build
         - echo "=== Build Complete ==="

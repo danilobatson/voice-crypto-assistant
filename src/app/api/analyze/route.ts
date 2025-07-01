@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
       console.log(`${key}:`, !!process.env[key], process.env[key]?.substring(0, 10) + '...');
     });
     
-    // Try to find any available API key
-    const geminiKey = possibleGeminiKeys.find(key => process.env[key]) ? process.env[possibleGeminiKeys.find(key => process.env[key])!] : null;
-    const lunarKey = possibleLunarKeys.find(key => process.env[key]) ? process.env[possibleLunarKeys.find(key => process.env[key])!] : null;
+    // Simplified key resolution - since we confirmed they exist as GEMINI_API_KEY and LUNARCRUSH_API_KEY
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const lunarKey = process.env.LUNARCRUSH_API_KEY || process.env.NEXT_PUBLIC_LUNARCRUSH_API_KEY;
     
     console.log('Final resolved keys:');
     console.log('Gemini key found:', !!geminiKey);
