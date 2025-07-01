@@ -114,15 +114,35 @@ Provide a comprehensive analysis including:
 4. Actionable insights for investors
 5. Relevant news or market events
 
-Format your response as a JSON object with the following structure:
+Format your response as a JSON object with the following structure (this is critical - you MUST respond with valid JSON only):
 {
   "analysis": "detailed analysis text",
-  "sentiment": "bullish/bearish/neutral",
+  "sentiment": "bullish/bearish/neutral", 
   "riskLevel": "low/medium/high",
   "keyFactors": ["factor1", "factor2", "factor3"],
   "priceTarget": "price prediction with timeframe",
-  "recommendation": "investment recommendation"
-}`;
+  "recommendation": "investment recommendation",
+  "marketData": {
+    "price": ${marketData?.price || 0},
+    "change24h": ${marketData?.percent_change_24h || 0},
+    "volume": ${marketData?.volume_24h || 0},
+    "marketCap": ${marketData?.market_cap || 0},
+    "available": ${!!marketData}
+  },
+  "confidence": 75,
+  "reasoning": "Brief explanation of the recommendation",
+  "social_sentiment": "bullish/bearish/neutral",
+  "key_metrics": {
+    "price": ${marketData?.price || 0},
+    "galaxy_score": "N/A",
+    "alt_rank": "N/A", 
+    "social_dominance": "N/A",
+    "market_cap": ${marketData?.market_cap || 0},
+    "volume_24h": ${marketData?.volume_24h || 0}
+  }
+}
+
+CRITICAL: Respond with ONLY the JSON object. Do not include any text before or after the JSON. The response must be valid, parseable JSON.`;
 
 			console.log('🚀 Sending request to Gemini...');
 			const result = await model.generateContent(prompt);
@@ -157,18 +177,29 @@ Format your response as a JSON object with the following structure:
 					],
 					priceTarget: 'Analysis required',
 					recommendation: 'Conduct further research',
+					marketData: {
+						price: marketData?.price || 0,
+						change24h: marketData?.percent_change_24h || 0,
+						volume: marketData?.volume_24h || 0,
+						marketCap: marketData?.market_cap || 0,
+						available: !!marketData
+					},
+					confidence: 50,
+					reasoning: 'Analysis completed with limited data',
+					social_sentiment: 'neutral',
+					key_metrics: {
+						price: marketData?.price || 0,
+						galaxy_score: 'N/A',
+						alt_rank: 'N/A',
+						social_dominance: 'N/A',
+						market_cap: marketData?.market_cap || 0,
+						volume_24h: marketData?.volume_24h || 0
+					}
 				};
 			}
 
-			// Enhance with market data
-			if (marketData) {
-				analysisData.marketData = {
-					price: marketData.price,
-					change24h: marketData.percent_change_24h,
-					volume: marketData.volume_24h,
-					marketCap: marketData.market_cap,
-				};
-			}
+			// Market data is now included in the Gemini response structure
+			// No need to enhance it separately
 
 			const responseTime = Date.now() - startTime;
 			console.log(`✅ Analysis completed in ${responseTime}ms`);
