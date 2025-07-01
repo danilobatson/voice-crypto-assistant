@@ -10,7 +10,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 async function createMCPClient(apiKey: string): Promise<Client> {
 	console.log('🔄 Initializing MCP client with official SDK...');
 
-	// Create SSE transport for LunarCrush MCP server (API key in URL)
+	// Create SSE transport for LunarCrush MCP server
 	const transport = new SSEClientTransport(
 		new URL(`https://lunarcrush.ai/sse?key=${apiKey}`)
 	);
@@ -18,7 +18,7 @@ async function createMCPClient(apiKey: string): Promise<Client> {
 	// Create MCP client
 	const client = new Client(
 		{
-			name: 'lunarcrush-mcp-crypto-assistant',
+			name: 'lunarcrush-mcp-trading',
 			version: '1.0.0',
 		},
 		{
@@ -157,99 +157,143 @@ IMPORTANT: Return ONLY valid JSON, no other text.
 			);
 		}
 
-		// Step 2: Fetch data from LunarCrush MCP for the detected cryptocurrency
-		console.log(
-			`📊 Step 2: Fetching LunarCrush data for ${cryptoDetection.symbol}...`
-		);
-
-		const toolResults = [];
-
-		try {
-			// Use MCP to call LunarCrush tools dynamically
-			const availableTools = await client.listTools();
-			console.log(
-				'🛠️ Available MCP tools:',
-				availableTools.tools?.map((t) => t.name)
-			);
-
-			// Try to get comprehensive data about the cryptocurrency
-			const dataFetchPromises = [];
-
-			// Look for relevant tools that might give us crypto data
-			const relevantTools =
-				availableTools.tools?.filter(
-					(tool) =>
-						tool.name.includes('topic') ||
-						tool.name.includes('crypto') ||
-						tool.name.includes('coin') ||
-						tool.name.includes('sentiment') ||
-						tool.name.includes('social')
-				) || [];
-
-			for (const tool of relevantTools.slice(0, 3)) {
-				// Limit to 3 tools for performance
-				try {
-					console.log(`🔧 Calling MCP tool: ${tool.name}`);
-					const result = await client.callTool({
-						name: tool.name,
-						arguments: {
-							symbol: cryptoDetection.symbol.toLowerCase(),
-							topic: cryptoDetection.symbol.toLowerCase(),
-							crypto: cryptoDetection.symbol.toLowerCase(),
-							query: cryptoDetection.name,
-						},
-					});
-
-					toolResults.push({
-						tool: tool.name,
-						success: true,
-						data: result.content,
-					});
-
-					console.log(`✅ Tool ${tool.name} executed successfully`);
-				} catch (toolError) {
-					console.error(`❌ Tool ${tool.name} failed:`, toolError);
-					toolResults.push({
-						tool: tool.name,
-						success: false,
-						error:
-							toolError instanceof Error ? toolError.message : 'Unknown error',
-					});
-				}
-			}
-		} catch (mcpError) {
-			console.error('❌ MCP data fetching failed:', mcpError);
-			toolResults.push({
-				tool: 'mcp_general',
-				success: false,
-				error:
-					mcpError instanceof Error
-						? mcpError.message
-						: 'MCP connection failed',
-			});
-		}
-
-		// Step 3: Analyze with Gemini using all available data
-		console.log('🧠 Step 3: AI analysis with Gemini...');
-
+		// Step 2: Let Gemini orchestrate which tools to use
+		console.log('🤖 Step 2: Gemini tool orchestration...');
+		
 		const analysisModel = genAI.getGenerativeModel({
 			model: 'gemini-2.0-flash-lite',
 		});
+		
+		// Get available tools from MCP
+		const { tools } = await client.listTools();
+		console.log(
+			'🛠️ Available MCP tools:',
+			tools?.map((t) => t.name) || []
+		);
 
-		const toolDataSummary = toolResults.map((result) => ({
-			tool: result.tool,
-			success: result.success,
-			data: result.success ? result.data : result.error,
-		}));
+		if (!tools || tools.length === 0) {
+			throw new Error('No MCP tools available from LunarCrush server');
+		}
+
+		// Let Gemini choose which tools to use
+		const orchestrationPrompt = `
+You are a cryptocurrency analyst. I need you to analyze ${cryptoDetection.name} (${cryptoDetection.symbol}) using the available LunarCrush MCP tools. Use a MAX of four tools.
+
+AVAILABLE MCP TOOLS:
+${JSON.stringify(tools, null, 2)}
+
+TASK: Create a plan to gather comprehensive data for ${cryptoDetection.symbol} trading analysis.
+
+Based on the available tools, decide which tools to call and with what parameters to get:
+1. Current price and market data
+2. Social sentiment metrics  
+3. Historical performance data
+4. Ranking and positioning data
+5. Get one week price historical time series data for charting purposes
+
+Prioritize getting data for the price chart. The price chart is important. If you don't get data back try different solutions (e.g. try the name of the coin FIRST then try the symbol).
+
+Respond with a JSON array of tool calls in this exact format:
+[
+{
+  "tool": "tool_name", 
+  "args": {"param": "value"},
+  "reason": "Short reason why this tool call is needed"
+}
+]
+
+Be specific with parameters. For example, if you need to find ${cryptoDetection.symbol} in a list first, plan that step.
+`;
+
+		const orchestrationResult = await analysisModel.generateContent(orchestrationPrompt);
+		const orchestrationText = orchestrationResult.response.text();
+
+		// Extract and parse tool calls
+		let toolCalls = [];
+		try {
+			const jsonMatch = orchestrationText?.match(/\[[\s\S]*\]/);
+			if (!jsonMatch) {
+				console.log('⚠️ No JSON array found in orchestration response');
+				throw new Error('No tool calls found in orchestration response');
+			}
+			toolCalls = JSON.parse(jsonMatch[0]);
+		} catch (e) {
+			console.error('Failed to parse tool orchestration:', orchestrationText);
+			throw new Error('Failed to parse tool orchestration response');
+		}
+
+		console.log('🎯 Planned tool calls:', toolCalls);
+
+		// Step 3: Execute the planned tool calls
+		console.log('🔧 Step 3: Executing planned tool calls...');
+		
+		const toolResults = [];
+		
+		// Execute tool calls with proper error handling
+		for (const toolCall of toolCalls) {
+			try {
+				console.log(`�️ Executing: ${toolCall.tool} - ${toolCall.reason}`);
+				const result = await client.callTool({
+					name: toolCall.tool,
+					arguments: toolCall.args,
+				});
+
+				toolResults.push({
+					tool: toolCall.tool,
+					args: toolCall.args,
+					reason: toolCall.reason,
+					success: true,
+					data: result.content,
+				});
+
+				console.log(`✅ Tool ${toolCall.tool} executed successfully`);
+			} catch (toolError) {
+				console.error(`❌ Tool ${toolCall.tool} failed:`, toolError);
+				toolResults.push({
+					tool: toolCall.tool,
+					args: toolCall.args,
+					reason: toolCall.reason,
+					success: false,
+					error: toolError instanceof Error ? toolError.message : 'Unknown error',
+				});
+			}
+		}
+
+		// Step 4: Analyze with Gemini using all gathered data
+		console.log('🧠 Step 4: AI analysis with Gemini...');
+
+		const gatheredData = {
+			symbol: cryptoDetection.symbol.toUpperCase(),
+			toolResults: toolResults,
+		};
 
 		const analysisPrompt = `
-You are a professional cryptocurrency analyst. Analyze the following query and data:
+You are an expert cryptocurrency analyst. Analyze the following data for ${cryptoDetection.symbol.toUpperCase()} gathered from LunarCrush MCP tools and provide a comprehensive trading recommendation.
 
-USER QUERY: "${query}"
-DETECTED CRYPTOCURRENCY: ${cryptoDetection.name} (${cryptoDetection.symbol})
+GATHERED DATA FROM MCP TOOLS:
+${JSON.stringify(gatheredData, null, 2)}
 
-LUNARCRUSH MCP DATA:
-${JSON.stringify(toolDataSummary, null, 2)}
+ANALYSIS REQUIREMENTS:
+Based on the above data from the MCP tools, provide a detailed trading analysis. Look for:
+
+1. CURRENT MARKET DATA:
+ - Real current price (not demo data)
+ - Market cap and volume
+ - Recent performance metrics
+
+2. SOCIAL SENTIMENT:
+ - Social mentions and engagement
+ - Galaxy Score and health indicators
+ - Community sentiment trends
+
+3. POSITIONING DATA:
+ - AltRank and market positioning
+ - Relative performance vs other cryptocurrencies
+
+4. CHART DATA:
+ - Price trends over the last week
+ - Could be used to create a chart
+ - Could be under close instead of price
 
 CRITICAL: You MUST respond with ONLY a valid JSON object. No markdown, no code blocks, no additional text.
 
@@ -262,7 +306,7 @@ Return this EXACT JSON structure:
   "key_metrics": {
     "price": "actual price from MCP data",
     "galaxy_score": "score from data",
-    "alt_rank": "rank from data",
+    "alt_rank": "rank from data", 
     "social_dominance": "dominance from data",
     "market_cap": "cap from data",
     "volume_24h": "volume from data",
@@ -273,7 +317,7 @@ Return this EXACT JSON structure:
   "ai_analysis": {
     "summary": "1-2 sentence overview of the analysis",
     "pros": ["Positive factor 1", "Positive factor 2", "etc"],
-    "cons": ["Risk factor 1", "Risk factor 2", "etc"],
+    "cons": ["Risk factor 1", "Risk factor 2", "etc"], 
     "key_factors": ["Important factor to monitor 1", "Important factor 2", "etc"]
   },
   "miscellaneous": "Any other relevant insights",
@@ -286,7 +330,6 @@ REQUIREMENTS:
 - Base recommendation on available social sentiment and market data
 - Keep spokenResponse natural and conversational for voice output
 - Response must be valid JSON only - NO markdown formatting, NO code blocks, NO extra text
-- Keep spokenResponse natural and conversational for voice output
 - Include specific numbers and percentages where possible
 
 Return ONLY valid JSON, no other text.
