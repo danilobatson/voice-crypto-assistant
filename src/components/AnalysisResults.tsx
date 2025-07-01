@@ -22,7 +22,12 @@ import {
 	Speed,
 	AccountBalanceWallet,
 } from '@mui/icons-material';
-import { formatCurrency, formatPercentage } from '@/lib/formatters';
+import {
+	formatCurrency,
+	formatPercentage,
+	formatLargeNumber,
+	formatCount,
+} from '@/lib/formatters';
 
 interface AnalysisResultsProps {
 	data: {
@@ -103,18 +108,17 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 
 	const recColor = getRecommendationColor(data.recommendation);
 
-	// Format all the metrics using our utility functions
-
+	// Format all the metrics using our utility functions for better readability
 	const formattedMetrics = {
-		price: data.data.key_metrics.price,
-		marketCap: data.data.key_metrics.market_cap,
-		volume24h: data.data.key_metrics.volume_24h,
+		price: formatCurrency(data.data.key_metrics.price),
+		marketCap: formatCurrency(data.data.key_metrics.market_cap),
+		volume24h: formatCurrency(data.data.key_metrics.volume_24h),
 		galaxyScore: data.data.key_metrics.galaxy_score,
 		socialDominance: formatPercentage(data.data.key_metrics.social_dominance),
-		mentions: data.data.key_metrics.mentions,
-		engagements: data.data.key_metrics.engagements,
-		creators: data.data.key_metrics.creators,
-		altRank: data.data.key_metrics.creators,
+		mentions: formatCount(data.data.key_metrics.mentions),
+		engagements: formatCount(data.data.key_metrics.engagements),
+		creators: formatCount(data.data.key_metrics.creators),
+		altRank: data.data.key_metrics.alt_rank,
 	};
 
 	return (
@@ -131,19 +135,25 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 				</Box>
 
 				{/* Key Decision Metrics */}
-				<Grid container spacing={3} gap={4} marginTop={2}>
+				<Grid container spacing={3} sx={{ mt: 2 }} gap={3}>
 					<Grid size={{ xs: 12, md: 4 }}>
 						<Card
 							elevation={0}
 							sx={{
 								bgcolor: alpha(recColor.bg, 0.1),
 								border: `2px solid ${recColor.bg}`,
+								p: 3,
 								textAlign: 'center',
-								width: '12em',
-								height: '100%',
+								height: 140,
+								display: 'flex',
+								flexDirection: 'column',
 								justifyContent: 'center',
+								borderRadius: 2,
 							}}>
-							<Typography variant='h6' color='text.secondary' gutterBottom>
+							<Typography
+								variant='subtitle1'
+								color='text.secondary'
+								gutterBottom>
 								Recommendation
 							</Typography>
 							<Chip
@@ -155,6 +165,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									fontWeight: 700,
 									px: 2,
 									py: 1,
+									mx: 'auto',
 								}}
 							/>
 						</Card>
@@ -166,12 +177,18 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							sx={{
 								bgcolor: alpha('#4285F4', 0.1),
 								border: '2px solid #4285F4',
+								p: 3,
 								textAlign: 'center',
-								width: '12em',
-								height: '100%',
+								height: 140,
+								display: 'flex',
+								flexDirection: 'column',
 								justifyContent: 'center',
+								borderRadius: 2,
 							}}>
-							<Typography variant='h6' color='text.secondary' gutterBottom>
+							<Typography
+								variant='subtitle1'
+								color='text.secondary'
+								gutterBottom>
 								Confidence Level
 							</Typography>
 							<Typography
@@ -182,7 +199,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, md: 4,  }}>
+					<Grid size={{ xs: 12, md: 4 }}>
 						<Card
 							elevation={0}
 							sx={{
@@ -193,12 +210,18 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 								border: `2px solid ${getSentimentColor(
 									data.data.social_sentiment
 								)}`,
+								p: 3,
 								textAlign: 'center',
-								width: '12em',
-								height: '100%',
+								height: 140,
+								display: 'flex',
+								flexDirection: 'column',
 								justifyContent: 'center',
+								borderRadius: 2,
 							}}>
-							<Typography variant='h6' color='text.secondary' gutterBottom>
+							<Typography
+								variant='subtitle1'
+								color='text.secondary'
+								gutterBottom>
 								Social Sentiment
 							</Typography>
 							<Box
@@ -221,7 +244,9 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 			</Paper>
 
 			{/* Key Metrics Section with Formatted Numbers */}
-			<Paper elevation={1} sx={{ p: 4, borderRadius: 3, mb: 3 }}>
+			<Paper
+				elevation={1}
+				sx={{ p: 4, borderRadius: 3, mb: 3,  }}>
 				<Typography
 					variant='h5'
 					gutterBottom
@@ -378,9 +403,9 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 			</Paper>
 
 			{/* Analysis Sections */}
-			<Grid container spacing={3}>
+			<Grid container >
 				<Grid size={{ xs: 12, md: 6 }}>
-					<Paper elevation={1} sx={{ p: 4, borderRadius: 3, height: '100%' }}>
+					<Paper elevation={1} sx={{ p: 4, borderRadius: 3, mb: 3 }}>
 						<Typography
 							variant='h6'
 							gutterBottom
@@ -481,8 +506,6 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Typography>
 					</Paper>
 				</Grid>
-
-				
 			</Grid>
 
 			{/* Detection Info */}
