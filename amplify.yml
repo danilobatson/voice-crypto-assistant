@@ -1,19 +1,15 @@
 version: 1
-environment:
-  variables:
-    NODE_OPTIONS: '--max-old-space-size=8192'
-    NEXT_TELEMETRY_DISABLED: 1
 frontend:
   phases:
     preBuild:
       commands:
-        - nvm use 20
-        - node --version
-        - npm --version
-        - npm ci
-        - npx next telemetry disable
+        - echo "Installing dependencies..."
+        - npm ci --include=dev
+        - echo "Verifying TypeScript installation..."
+        - npx tsc --version
     build:
       commands:
+        - echo "Building Next.js application..."
         - npm run build
   artifacts:
     baseDirectory: .next
@@ -23,12 +19,3 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-  customHeaders:
-    - pattern: '/api/*'
-      headers:
-        - key: 'Access-Control-Allow-Origin'
-          value: '*'
-        - key: 'Access-Control-Allow-Methods'
-          value: 'GET, POST, PUT, DELETE, OPTIONS'
-        - key: 'Access-Control-Allow-Headers'
-          value: 'Content-Type, Authorization'
