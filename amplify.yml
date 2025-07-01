@@ -9,6 +9,9 @@ frontend:
     preBuild:
       commands:
         - echo "=== Pre-build Phase ==="
+        - echo "Setting Node version to 20..."
+        - nvm install 20
+        - nvm use 20
         - echo "Node version:" && node --version
         - echo "NPM version:" && npm --version
         - echo "Installing Yarn globally..."
