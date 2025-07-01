@@ -10,15 +10,9 @@ frontend:
         - nvm use 20
         - node --version
         - npm --version
-        - echo "Current directory:" && pwd
-        - echo "Directory contents:" && ls -la
-        - echo "Src directory:" && ls -la src/
-        - echo "Components directory:" && ls -la src/components/
-        - echo "Lib directory:" && ls -la src/lib/
         - npm ci
+        - npm install --save-dev typescript @types/node eslint
         - npx next telemetry disable
-        - echo "TypeScript config:" && cat tsconfig.json
-        - echo "Next config:" && cat next.config.js
     build:
       commands:
         - npm run build
