@@ -16,6 +16,8 @@ frontend:
         - rm -rf node_modules package-lock.json .next
         - echo "Installing dependencies..."
         - npm install --no-optional --no-audit --no-fund
+        - echo "Installing TypeScript and ESLint for build compatibility..."
+        - npm install --save-dev typescript @types/node @types/react @types/react-dom eslint
         - echo "Disabling Next.js telemetry..."
         - npx next telemetry disable
         - echo "=== Pre-build Complete ==="
