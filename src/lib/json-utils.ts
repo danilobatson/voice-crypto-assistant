@@ -27,9 +27,9 @@ export function parseAIResponse(responseText: string): any {
       } catch (thirdError) {
         console.error('❌ All JSON parsing attempts failed:', {
           original: responseText.substring(0, 200),
-          firstError: error.message,
-          secondError: secondError.message,
-          thirdError: thirdError.message
+          firstError: error instanceof Error ? error.message : String(error),
+          secondError: secondError instanceof Error ? secondError.message : String(secondError),
+          thirdError: thirdError instanceof Error ? thirdError.message : String(thirdError)
         });
         throw new Error('Failed to parse AI response as JSON');
       }

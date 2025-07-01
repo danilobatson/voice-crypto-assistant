@@ -15,14 +15,14 @@ import {
   Box
 } from '@mantine/core';
 import {
-  IconBug,
-  IconChevronDown,
-  IconChevronUp,
-  IconCopy,
-  IconCheck,
-  IconDatabase,
-  IconBrain
-} from '@tabler/icons-react';
+  BugReport,
+  ExpandMore,
+  ExpandLess,
+  ContentCopy,
+  Check,
+  Storage,
+  Psychology
+} from '@mui/icons-material';
 
 interface DebugPanelProps {
   data: any;
@@ -65,7 +65,7 @@ export function DebugPanel({ data, query }: DebugPanelProps) {
         {/* Header */}
         <Group justify="space-between">
           <Group gap="sm">
-            <IconBug size={18} color="#f59e0b" />
+            <BugReport />
             <Text size="sm" fw={600} c="white">Debug Panel</Text>
             <Badge color="orange" size="xs">DEV</Badge>
           </Group>
@@ -77,7 +77,7 @@ export function DebugPanel({ data, query }: DebugPanelProps) {
                 variant="subtle"
                 size="xs"
                 color="gray"
-                leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                leftSection={copied ? <Check /> : <ContentCopy />}
               >
                 {copied ? 'Copied!' : 'Copy JSON'}
               </Button>
@@ -87,7 +87,7 @@ export function DebugPanel({ data, query }: DebugPanelProps) {
               variant="subtle"
               size="xs"
               color="gray"
-              rightSection={isOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+              rightSection={isOpen ? <ExpandLess /> : <ExpandMore />}
             >
               {isOpen ? 'Close' : 'Open'}
             </Button>
@@ -110,13 +110,13 @@ export function DebugPanel({ data, query }: DebugPanelProps) {
             {/* Response Tabs */}
             <Tabs defaultValue="processed" color="orange">
               <Tabs.List>
-                <Tabs.Tab value="processed" leftSection={<IconBrain size={14} />}>
+                <Tabs.Tab value="processed" leftSection={<Psychology />}>
                   Processed Data
                 </Tabs.Tab>
-                <Tabs.Tab value="lunarcrush" leftSection={<IconDatabase size={14} />}>
+                <Tabs.Tab value="lunarcrush" leftSection={<Storage />}>
                   LunarCrush MCP
                 </Tabs.Tab>
-                <Tabs.Tab value="gemini" leftSection={<IconBrain size={14} />}>
+                <Tabs.Tab value="gemini" leftSection={<Psychology />}>
                   Gemini AI
                 </Tabs.Tab>
                 <Tabs.Tab value="raw">

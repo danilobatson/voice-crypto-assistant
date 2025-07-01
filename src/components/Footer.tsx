@@ -35,7 +35,7 @@ export function Footer() {
       <Container maxWidth="lg" sx={{ py: 6 }}>
         <Grid container spacing={4}>
           {/* Project Info */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
               Voice Crypto Assistant
             </Typography>
@@ -71,7 +71,7 @@ export function Footer() {
           </Grid>
 
           {/* Technology Stack */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
               Technology
             </Typography>
@@ -99,7 +99,7 @@ export function Footer() {
           </Grid>
 
           {/* Portfolio Links */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
               Portfolio
             </Typography>

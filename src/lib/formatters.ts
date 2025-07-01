@@ -3,7 +3,7 @@
  */
 export function formatLargeNumber(value: string | number): string {
   // Handle string inputs that might have $ or commas
-  let numStr = typeof value === 'string' ? value : value.toString();
+  const numStr = typeof value === 'string' ? value : value.toString();
   
   // Remove $ and commas to get clean number
   const cleanStr = numStr.replace(/[$,]/g, '');
@@ -41,7 +41,7 @@ export function formatLargeNumber(value: string | number): string {
  * Format currency values with appropriate scaling
  */
 export function formatCurrency(value: string | number): string {
-  let numStr = typeof value === 'string' ? value : value.toString();
+  const numStr = typeof value === 'string' ? value : value.toString();
   
   // If it already has $ and looks formatted, just scale it
   if (numStr.includes('$')) {
@@ -58,7 +58,7 @@ export function formatCurrency(value: string | number): string {
  * Format percentage values
  */
 export function formatPercentage(value: string | number): string {
-  let numStr = typeof value === 'string' ? value : value.toString();
+  const numStr = typeof value === 'string' ? value : value.toString();
   
   // Remove % if it exists
   const cleanStr = numStr.replace('%', '');
@@ -74,7 +74,7 @@ export function formatPercentage(value: string | number): string {
  * Format whole numbers with commas (for smaller counts)
  */
 export function formatCount(value: string | number): string {
-  let numStr = typeof value === 'string' ? value : value.toString();
+  const numStr = typeof value === 'string' ? value : value.toString();
   
   // Remove commas to get clean number
   const cleanStr = numStr.replace(/,/g, '');
@@ -100,7 +100,7 @@ export function smartFormat(value: string | number, type?: 'currency' | 'percent
   if (type === 'count') return formatCount(value);
   
   // Auto-detect based on value
-  let str = typeof value === 'string' ? value : value.toString();
+  const str = typeof value === 'string' ? value : value.toString();
   
   if (str.includes('$')) return formatCurrency(value);
   if (str.includes('%')) return formatPercentage(value);

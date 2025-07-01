@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 interface UseVoiceRecognitionReturn {
@@ -15,7 +15,7 @@ interface UseVoiceRecognitionReturn {
 
 export function useVoiceRecognition(): UseVoiceRecognitionReturn {
   const [error, setError] = useState<string | null>(null);
-  
+
   const {
     transcript,
     listening,
@@ -36,12 +36,12 @@ export function useVoiceRecognition(): UseVoiceRecognitionReturn {
 
   const startListening = useCallback(() => {
     setError(null);
-    
+
     if (!browserSupportsSpeechRecognition) {
       setError('Speech recognition is not supported in this browser');
       return;
     }
-    
+
     SpeechRecognition.startListening({
       continuous: true, // Keep listening for continuous speech
       language: 'en-US',

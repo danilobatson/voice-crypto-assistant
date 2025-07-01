@@ -13,24 +13,19 @@ import {
 	Slider,
 	Collapse,
 	Chip,
-	Badge,
-	Container,
 	Grow,
-	Fade,
 	alpha,
 	Switch,
 	FormControlLabel,
 	Select,
 	MenuItem,
 	FormControl,
-	InputLabel,
 } from '@mui/material';
 import {
 	Mic,
 	MicOff,
 	Psychology,
 	VolumeUp,
-	VolumeDown,
 	VolumeOff,
 	PlayArrow,
 	Pause,
@@ -39,9 +34,7 @@ import {
 	Edit,
 	Send,
 	Cancel,
-	TrendingUp,
-	TrendingDown,
-	Remove,
+
 	ExpandMore,
 	ExpandLess,
 	RecordVoiceOver,
@@ -764,7 +757,7 @@ export function VoiceAssistant({ ref }: VoiceAssistantProps) {
 											<Typography
 												variant='body1'
 												sx={{ mb: 2, fontStyle: 'italic' }}>
-												"{transcript || editedQuery}"
+												"{editedQuery || transcript }"
 											</Typography>
 
 											{/* IMMEDIATE Edit and Submit Options - Show as soon as transcript appears */}

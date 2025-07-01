@@ -1,294 +1,425 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createMCPClient, executeToolCalls, createOrchestrationPrompt, withTimeout } from '@/lib/mcp-client';
-import { parseAIResponse, createStrictJSONPrompt } from '@/lib/json-utils';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { parseAIResponse } from '@/lib/json-utils';
 
-// Rate limiting
-const requestCounts = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 10;
-const RATE_WINDOW = 60 * 1000; // 1 minute
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const userRequests = requestCounts.get(ip);
+async function createMCPClient(apiKey: string): Promise<Client> {
+	console.log('🔄 Initializing MCP client with official SDK...');
 
-  if (!userRequests || now > userRequests.resetTime) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
-    return true;
-  }
+	// Create SSE transport for LunarCrush MCP server (API key in URL)
+	const transport = new SSEClientTransport(
+		new URL(`https://lunarcrush.ai/sse?key=${apiKey}`)
+	);
 
-  if (userRequests.count >= RATE_LIMIT) {
-    return false;
-  }
+	// Create MCP client
+	const client = new Client(
+		{
+			name: 'lunarcrush-mcp-crypto-assistant',
+			version: '1.0.0',
+		},
+		{
+			capabilities: {
+				tools: {},
+			},
+		}
+	);
 
-  userRequests.count++;
-  return true;
+	// Connect to the server
+	await client.connect(transport);
+	console.log('✅ MCP client connected successfully');
+
+	return client;
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-  let client = null;
+	const startTime = Date.now();
+	let client: Client | null = null;
 
-  try {
-    // Rate limiting
-    const ip = request.ip ?? 'unknown';
-    if (!checkRateLimit(ip)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Rate limit exceeded. Please wait before making another request.',
-        spokenResponse: 'Please wait a moment before making another request.'
-      }, { status: 429 });
-    }
+	try {
+		const { query } = await request.json();
 
-    const body = await request.json();
-    const { query } = body;
+		if (!query || typeof query !== 'string') {
+			return NextResponse.json(
+				{ success: false, error: 'Query is required' },
+				{ status: 400 }
+			);
+		}
 
-    if (!query || typeof query !== 'string') {
-      return NextResponse.json({
-        success: false,
-        error: 'Query is required',
-        spokenResponse: 'Please provide a query to analyze.'
-      }, { status: 400 });
-    }
+		console.log(`🚀 Starting analysis for query: "${query}"`);
 
-    console.log(`🚀 Starting analysis for query: "${query}"`);
+		// Initialize MCP client
+		client = await createMCPClient(process.env.LUNARCRUSH_API_KEY!);
 
-    // Get API keys
-    const lunarcrushKey = process.env.LUNARCRUSH_API_KEY || process.env.NEXT_PUBLIC_LUNARCRUSH_API_KEY;
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+		// Step 1: Let Gemini identify what cryptocurrency the user is asking about
+		console.log('🔍 Step 1: AI-powered cryptocurrency detection...');
+		const detectionModel = genAI.getGenerativeModel({
+			model: 'gemini-2.0-flash-exp',
+		});
 
-    if (!lunarcrushKey || !geminiKey) {
-      return NextResponse.json({
-        success: false,
-        error: 'API keys not configured',
-        spokenResponse: 'The service is temporarily unavailable. Please try again later.'
-      }, { status: 500 });
-    }
+		const detectionPrompt = `
+Analyze this user query and identify what cryptocurrency they're asking about: "${query}"
 
-    // Initialize services
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
-
-    // MCP Client with timeout and retry
-    try {
-      client = await withTimeout(createMCPClient(lunarcrushKey), 15000);
-    } catch (error) {
-      console.error('❌ MCP connection failed:', error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to connect to LunarCrush MCP',
-        spokenResponse: 'I apologize, but I am unable to connect to the cryptocurrency data service right now. Please try again in a moment.',
-        fallback: true
-      }, { status: 503 });
-    }
-
-    // Get available tools
-    const { tools } = await client.listTools();
-    console.log(`📋 Available MCP tools: ${tools.length}`);
-
-    // Detect cryptocurrency from query with strict JSON prompt
-    const cryptoDetectionPrompt = createStrictJSONPrompt(`
-Analyze this query and extract the main cryptocurrency being discussed: "${query}"
-
-If a cryptocurrency is mentioned, respond with JSON:
+If you can identify a specific cryptocurrency, return ONLY a JSON object with:
 {
-  "detected_crypto": "full name",
-  "symbol": "SYMBOL",
+  "detected": true,
+  "symbol": "BTC",
+  "name": "Bitcoin",
   "confidence": 95,
-  "reasoning": "why you detected this crypto"
+  "reasoning": "User explicitly mentioned Bitcoin"
 }
 
-If no cryptocurrency is mentioned, respond with:
+If no cryptocurrency is mentioned, return:
 {
-  "detected_crypto": "none",
-  "symbol": "",
-  "confidence": 0,
-  "reasoning": "no cryptocurrency mentioned"
+  "detected": false,
+  "reasoning": "No specific cryptocurrency mentioned in query"
 }
 
-Common crypto corrections:
-- cordana/cardano → Cardano (ADA)
-- etherium → Ethereum (ETH)
-- bit coin → Bitcoin (BTC)
-`);
+IMPORTANT: Return ONLY valid JSON, no other text.
+`;
 
-    const cryptoDetectionResult = await model.generateContent(cryptoDetectionPrompt);
-    let cryptoInfo;
+		const detectionResult = await detectionModel.generateContent(
+			detectionPrompt
+		);
+		const detectionText = detectionResult.response.text();
 
-    try {
-      cryptoInfo = parseAIResponse(cryptoDetectionResult.response.text());
-    } catch (error) {
-      console.error('❌ Crypto detection parsing failed:', error);
-      cryptoInfo = { detected_crypto: "Bitcoin", symbol: "BTC", confidence: 50, reasoning: "Fallback to Bitcoin" };
-    }
+		let cryptoDetection;
+		try {
+			// Try to parse the AI response as JSON directly first
+			const cleanedText = detectionText
+				.replace(/```json\s*|\s*```/g, '')
+				.trim();
+			cryptoDetection = JSON.parse(cleanedText);
+		} catch (e) {
+			console.error('Failed to parse detection result:', detectionText);
 
-    // If no crypto detected, provide helpful response
-    if (cryptoInfo.detected_crypto === "none" || cryptoInfo.confidence < 30) {
-      return NextResponse.json({
-        success: true,
-        recommendation: "HOLD" as const,
-        confidence: 0,
-        reasoning: "No specific cryptocurrency was mentioned in your query.",
-        social_sentiment: "neutral" as const,
-        key_metrics: {
-          price: "N/A",
-          galaxy_score: "N/A",
-          alt_rank: "N/A",
-          social_dominance: "N/A",
-          market_cap: "N/A",
-          volume_24h: "N/A",
-          mentions: "N/A",
-          engagements: "N/A",
-          creators: "N/A"
-        },
-        ai_analysis: "I'd be happy to help you analyze cryptocurrency data! Please ask about a specific cryptocurrency like Bitcoin, Ethereum, Solana, or any other digital asset you're interested in.",
-        miscellaneous: "Try asking: 'What's the sentiment on Bitcoin?' or 'How is Ethereum trending?'",
-        symbol: "",
-        spokenResponse: "I'd be happy to help you analyze cryptocurrency data! Please ask about a specific cryptocurrency like Bitcoin, Ethereum, or Solana.",
-        toolsUsed: 0,
-        dataPoints: 0,
-        responseTime: Date.now() - startTime,
-        crypto_detection: cryptoInfo
-      });
-    }
+			// Fallback: Try to detect crypto manually from the query
+			const queryLower = query.toLowerCase();
+			const cryptoPatterns = {
+				bitcoin: { symbol: 'BTC', name: 'Bitcoin' },
+				btc: { symbol: 'BTC', name: 'Bitcoin' },
+				ethereum: { symbol: 'ETH', name: 'Ethereum' },
+				eth: { symbol: 'ETH', name: 'Ethereum' },
+				solana: { symbol: 'SOL', name: 'Solana' },
+				sol: { symbol: 'SOL', name: 'Solana' },
+				cardano: { symbol: 'ADA', name: 'Cardano' },
+				ada: { symbol: 'ADA', name: 'Cardano' },
+				dogecoin: { symbol: 'DOGE', name: 'Dogecoin' },
+				doge: { symbol: 'DOGE', name: 'Dogecoin' },
+			};
 
-    const symbol = cryptoInfo.symbol || cryptoInfo.detected_crypto;
-    console.log(`🎯 Analyzing cryptocurrency: ${symbol}`);
+			let fallbackDetection = null;
+			for (const [keyword, crypto] of Object.entries(cryptoPatterns)) {
+				if (queryLower.includes(keyword)) {
+					fallbackDetection = {
+						detected: true,
+						symbol: crypto.symbol,
+						name: crypto.name,
+						confidence: 90,
+						reasoning: `Detected ${crypto.name} from keyword "${keyword}" in query`,
+					};
+					break;
+				}
+			}
 
-    // Create orchestration prompt for tool selection with strict JSON
-    const orchestrationPrompt = createStrictJSONPrompt(createOrchestrationPrompt(symbol, tools));
+			if (fallbackDetection) {
+				console.log('🔄 Using fallback detection:', fallbackDetection);
+				cryptoDetection = fallbackDetection;
+			} else {
+				console.error('No cryptocurrency detected in query:', query);
+				return NextResponse.json(
+					{
+						success: false,
+						error:
+							'Could not identify which cryptocurrency you want to analyze.',
+						suggestion:
+							'Please mention a specific cryptocurrency like Bitcoin, Ethereum, Solana, etc.',
+					},
+					{ status: 400 }
+				);
+			}
+		}
 
-    const orchestrationResult = await model.generateContent(orchestrationPrompt);
-    let toolCalls;
+		console.log('🎯 Crypto detection result:', cryptoDetection);
 
-    try {
-      toolCalls = parseAIResponse(orchestrationResult.response.text());
-    } catch (error) {
-      console.error('❌ Tool orchestration parsing failed:', error);
-      // Fallback tool calls
-      toolCalls = [
-        { tool: "LunarCrush MCP:Topic", args: { topic: symbol.toLowerCase() }, reason: "Get basic topic data" }
-      ];
-    }
+		if (!cryptoDetection.detected) {
+			return NextResponse.json(
+				{
+					success: false,
+					error: 'Please specify which cryptocurrency you want to analyze.',
+					suggestion:
+						'Try asking: "What\'s the sentiment on Bitcoin?" or "How is Ethereum trending?"',
+				},
+				{ status: 400 }
+			);
+		}
 
-    // Execute MCP tool calls
-    console.log(`🔄 Executing ${toolCalls.length} MCP tool calls...`);
-    const toolResults = await executeToolCalls(client, toolCalls.slice(0, 4)); // Limit to 4 tools
+		// Step 2: Fetch data from LunarCrush MCP for the detected cryptocurrency
+		console.log(
+			`📊 Step 2: Fetching LunarCrush data for ${cryptoDetection.symbol}...`
+		);
 
-    // Prepare analysis prompt with strict JSON formatting
-    const analysisPrompt = createStrictJSONPrompt(`
-You are a professional cryptocurrency analyst. Analyze the following data for ${symbol} and provide a comprehensive investment recommendation.
+		const toolResults = [];
 
-QUERY: "${query}"
+		try {
+			// Use MCP to call LunarCrush tools dynamically
+			const availableTools = await client.listTools();
+			console.log(
+				'🛠️ Available MCP tools:',
+				availableTools.tools?.map((t) => t.name)
+			);
 
-MCP TOOL RESULTS:
-${JSON.stringify(toolResults, null, 2)}
+			// Try to get comprehensive data about the cryptocurrency
+			const dataFetchPromises = [];
 
-CRYPTO DETECTION:
-${JSON.stringify(cryptoInfo, null, 2)}
+			// Look for relevant tools that might give us crypto data
+			const relevantTools =
+				availableTools.tools?.filter(
+					(tool) =>
+						tool.name.includes('topic') ||
+						tool.name.includes('crypto') ||
+						tool.name.includes('coin') ||
+						tool.name.includes('sentiment') ||
+						tool.name.includes('social')
+				) || [];
 
-Provide your analysis in this EXACT JSON format (no additional text, no markdown):
+			for (const tool of relevantTools.slice(0, 3)) {
+				// Limit to 3 tools for performance
+				try {
+					console.log(`🔧 Calling MCP tool: ${tool.name}`);
+					const result = await client.callTool({
+						name: tool.name,
+						arguments: {
+							symbol: cryptoDetection.symbol.toLowerCase(),
+							topic: cryptoDetection.symbol.toLowerCase(),
+							crypto: cryptoDetection.symbol.toLowerCase(),
+							query: cryptoDetection.name,
+						},
+					});
+
+					toolResults.push({
+						tool: tool.name,
+						success: true,
+						data: result.content,
+					});
+
+					console.log(`✅ Tool ${tool.name} executed successfully`);
+				} catch (toolError) {
+					console.error(`❌ Tool ${tool.name} failed:`, toolError);
+					toolResults.push({
+						tool: tool.name,
+						success: false,
+						error:
+							toolError instanceof Error ? toolError.message : 'Unknown error',
+					});
+				}
+			}
+		} catch (mcpError) {
+			console.error('❌ MCP data fetching failed:', mcpError);
+			toolResults.push({
+				tool: 'mcp_general',
+				success: false,
+				error:
+					mcpError instanceof Error
+						? mcpError.message
+						: 'MCP connection failed',
+			});
+		}
+
+		// Step 3: Analyze with Gemini using all available data
+		console.log('🧠 Step 3: AI analysis with Gemini...');
+
+		const analysisModel = genAI.getGenerativeModel({
+			model: 'gemini-2.0-flash-exp',
+		});
+
+		const toolDataSummary = toolResults.map((result) => ({
+			tool: result.tool,
+			success: result.success,
+			data: result.success ? result.data : result.error,
+		}));
+
+		const analysisPrompt = `
+You are a professional cryptocurrency analyst. Analyze the following query and data:
+
+USER QUERY: "${query}"
+DETECTED CRYPTOCURRENCY: ${cryptoDetection.name} (${cryptoDetection.symbol})
+
+LUNARCRUSH MCP DATA:
+${JSON.stringify(toolDataSummary, null, 2)}
+
+CRITICAL: You MUST respond with ONLY a valid JSON object. No markdown, no code blocks, no additional text.
+
+Return this EXACT JSON structure:
 {
-  "recommendation": "BUY",
-  "confidence": 85,
-  "reasoning": "Clear explanation of recommendation based on the data",
-  "social_sentiment": "bullish",
+  "recommendation": "BUY|SELL|HOLD",
+  "confidence": 0-100,
+  "reasoning": "Brief explanation of the recommendation",
+  "social_sentiment": "bullish|bearish|neutral",
   "key_metrics": {
-    "price": "$43,250",
-    "galaxy_score": "85/100",
-    "alt_rank": "#1",
-    "social_dominance": "15.2%",
-    "market_cap": "$850B",
-    "volume_24h": "$25B",
-    "mentions": "1,250",
-    "engagements": "45,000",
-    "creators": "890"
+    "price": "actual price from MCP data",
+    "galaxy_score": "score from data",
+    "alt_rank": "rank from data",
+    "social_dominance": "dominance from data",
+    "market_cap": "cap from data",
+    "volume_24h": "volume from data",
+    "mentions": "mentions from data",
+    "engagements": "engagements/interactions from data",
+    "creators": "creators from data"
   },
-  "ai_analysis": "Two paragraph beginner-friendly analysis explaining the current market situation and social sentiment trends.",
-  "miscellaneous": "Additional relevant insights from the data",
-  "spokenResponse": "Natural conversational response optimized for voice synthesis, 30-45 seconds when read aloud"
+  "ai_analysis": {
+    "summary": "1-2 sentence overview of the analysis",
+    "pros": ["Positive factor 1", "Positive factor 2", "etc"],
+    "cons": ["Risk factor 1", "Risk factor 2", "etc"],
+    "key_factors": ["Important factor to monitor 1", "Important factor 2", "etc"]
+  },
+  "miscellaneous": "Any other relevant insights",
+  "spokenResponse": "Natural response for voice synthesis (2-3 sentences)"
 }
 
-Use only: BUY, SELL, or HOLD for recommendation.
-Use only: bullish, bearish, or neutral for social_sentiment.
-Focus on the actual data provided in the MCP tool results.
-`);
+REQUIREMENTS:
+- Extract ACTUAL data from the MCP results where available
+- If specific data is missing, use "N/A" for that field
+- Base recommendation on available social sentiment and market data
+- Keep spokenResponse natural and conversational for voice output
+- Response must be valid JSON only - NO markdown formatting, NO code blocks, NO extra text
+- Keep spokenResponse natural and conversational for voice output
+- Include specific numbers and percentages where possible
 
-    // Generate AI analysis with better error handling
-    const analysisResult = await model.generateContent(analysisPrompt);
-    let analysis;
+Return ONLY valid JSON, no other text.
+`;
 
-    try {
-      const rawResponse = analysisResult.response.text();
-      console.log(`🔍 Raw AI response preview: ${rawResponse.substring(0, 100)}...`);
+		const analysisResult = await analysisModel.generateContent(analysisPrompt);
+		const analysisText = analysisResult.response.text();
 
-      analysis = parseAIResponse(rawResponse);
-      console.log('✅ Successfully parsed AI analysis');
-    } catch (error) {
-      console.error('❌ Analysis parsing failed:', error);
+		let analysis;
+		try {
+			// Clean the response text to remove markdown formatting
+			let cleanedText = analysisText.trim();
 
-      // Enhanced fallback analysis with actual data if available
-      const hasToolData = toolResults.some(r => r.success);
-      const dataStatus = hasToolData ? "with limited data" : "due to data processing issues";
+			// Remove markdown code blocks if present
+			cleanedText = cleanedText
+				.replace(/```json\s*/g, '')
+				.replace(/\s*```/g, '');
 
-      analysis = {
-        recommendation: "HOLD",
-        confidence: hasToolData ? 60 : 30,
-        reasoning: `Analysis completed ${dataStatus}. ${hasToolData ? 'Some social metrics were retrieved but full analysis was incomplete.' : 'Unable to retrieve comprehensive market data.'}`,
-        social_sentiment: "neutral",
-        key_metrics: {
-          price: hasToolData ? "Available in tool data" : "Data unavailable",
-          galaxy_score: hasToolData ? "Available in tool data" : "Data unavailable",
-          alt_rank: hasToolData ? "Available in tool data" : "Data unavailable",
-          social_dominance: hasToolData ? "Available in tool data" : "Data unavailable",
-          market_cap: hasToolData ? "Available in tool data" : "Data unavailable",
-          volume_24h: hasToolData ? "Available in tool data" : "Data unavailable",
-          mentions: hasToolData ? "Available in tool data" : "Data unavailable",
-          engagements: hasToolData ? "Available in tool data" : "Data unavailable",
-          creators: hasToolData ? "Available in tool data" : "Data unavailable"
-        },
-        ai_analysis: `Analysis for ${symbol}: ${hasToolData ? 'I was able to gather some social sentiment data, but encountered issues with the full analysis processing. The available data suggests moderate social activity.' : 'I encountered issues accessing comprehensive market data.'} Please try asking about this cryptocurrency again for a complete analysis with detailed insights and recommendations.`,
-        miscellaneous: `${hasToolData ? 'Partial data available - retry recommended.' : 'Full retry recommended.'} Raw tool results: ${toolResults.length} tools executed, ${toolResults.filter(r => r.success).length} successful.`,
-        spokenResponse: `I found some information about ${symbol}, but encountered processing issues with the complete analysis. ${hasToolData ? 'I was able to gather social sentiment data, but please ask about this cryptocurrency again for a full detailed analysis.' : 'Please try asking about this cryptocurrency again for a complete assessment.'}`
-      };
-    }
+			// Remove any leading/trailing non-JSON text
+			const jsonStart = cleanedText.indexOf('{');
+			const jsonEnd = cleanedText.lastIndexOf('}');
 
-    // Construct final response
-    const response = {
-      success: true,
-      ...analysis,
-      symbol,
-      toolsUsed: toolResults.length,
-      dataPoints: toolResults.filter(r => r.success).length,
-      responseTime: Date.now() - startTime,
-      crypto_detection: cryptoInfo
-    };
+			if (jsonStart !== -1 && jsonEnd !== -1) {
+				cleanedText = cleanedText.substring(jsonStart, jsonEnd + 1);
+			}
 
-    console.log(`✅ Analysis complete for ${symbol} in ${response.responseTime}ms`);
-    return NextResponse.json(response);
+			console.log(
+				'🧹 Cleaned analysis text:',
+				cleanedText.substring(0, 200) + '...'
+			);
 
-  } catch (error) {
-    console.error('❌ API Error:', error);
+			// Try to parse the cleaned JSON
+			analysis = JSON.parse(cleanedText);
 
-    const fallbackResponse = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Analysis failed',
-      spokenResponse: 'I apologize, but I encountered an error analyzing the cryptocurrency data. Please try again in a moment.',
-      toolsUsed: 0,
-      dataPoints: 0,
-      responseTime: Date.now() - startTime
-    };
+			// Validate required fields and add defaults if missing
+			if (!analysis.recommendation) analysis.recommendation = 'HOLD';
+			if (!analysis.confidence) analysis.confidence = 50;
+			if (!analysis.social_sentiment) analysis.social_sentiment = 'neutral';
+			if (!analysis.key_metrics) analysis.key_metrics = {};
+			if (!analysis.ai_analysis) {
+				analysis.ai_analysis = {
+					summary: `Analysis completed for ${cryptoDetection.name} with available data.`,
+					pros: ['Market data available', 'AI analysis completed'],
+					cons: ['Limited data availability', 'Market volatility'],
+					key_factors: [
+						'Monitor price movements',
+						'Watch social sentiment',
+						'Consider market trends',
+					],
+				};
+			}
+			if (!analysis.spokenResponse) {
+				analysis.spokenResponse = `Analysis completed for ${cryptoDetection.name}. Recommendation is ${analysis.recommendation} with ${analysis.confidence}% confidence.`;
+			}
+		} catch (e) {
+			console.error('Failed to parse analysis result:', analysisText);
 
-    return NextResponse.json(fallbackResponse, { status: 500 });
-  } finally {
-    // Clean up MCP client connection
-    if (client) {
-      try {
-        await client.close();
-        console.log('🔒 MCP client connection closed');
-      } catch (error) {
-        console.error('⚠️ Error closing MCP client:', error);
-      }
-    }
-  }
+			// Fallback analysis with the detected crypto info
+			analysis = {
+				recommendation: 'HOLD',
+				confidence: 50,
+				reasoning: `Analysis completed for ${cryptoDetection.name} based on available data. Consider market conditions and your risk tolerance.`,
+				social_sentiment: 'neutral',
+				key_metrics: {
+					price: 'N/A',
+					market_cap: 'N/A',
+					volume_24h: 'N/A',
+					galaxy_score: 'N/A',
+					social_dominance: 'N/A',
+					mentions: 'N/A',
+					engagements: 'N/A',
+					creators: 'N/A',
+					alt_rank: 'N/A',
+				},
+				ai_analysis: {
+					summary: `Analysis for ${cryptoDetection.name} completed with limited data availability.`,
+					pros: [
+						'Basic analysis completed',
+						'Cryptocurrency detected successfully',
+					],
+					cons: ['Limited market data', 'API response parsing issues'],
+					key_factors: [
+						'Retry query for better data',
+						'Monitor market conditions',
+						'Consider alternative data sources',
+					],
+				},
+				miscellaneous:
+					'Please try your query again for more detailed analysis.',
+				spokenResponse: `I've analyzed ${cryptoDetection.name} based on available data. The analysis suggests a hold position while monitoring market conditions.`,
+			};
+		}
+
+		// Step 4: Construct final response
+		const responseTime = Date.now() - startTime;
+
+		const response = {
+			success: true,
+			...analysis,
+			symbol: cryptoDetection.symbol,
+			toolsUsed: toolResults.length,
+			dataPoints: toolResults.filter((r) => r.success).length,
+			responseTime,
+			crypto_detection: cryptoDetection,
+		};
+
+		console.log(
+			`✅ Analysis complete for ${cryptoDetection.symbol} in ${responseTime}ms`
+		);
+		return NextResponse.json(response);
+	} catch (error) {
+		console.error('❌ API Error:', error);
+
+		const fallbackResponse = {
+			success: false,
+			error: error instanceof Error ? error.message : 'Analysis failed',
+			spokenResponse:
+				'I apologize, but I encountered an error analyzing the cryptocurrency data. Please try again in a moment.',
+			toolsUsed: 0,
+			dataPoints: 0,
+			responseTime: Date.now() - startTime,
+		};
+
+		return NextResponse.json(fallbackResponse, { status: 500 });
+	} finally {
+		// Clean up MCP client connection
+		if (client) {
+			try {
+				await client.close();
+				console.log('🔒 MCP client connection closed');
+			} catch (error) {
+				console.error('⚠️ Error closing MCP client:', error);
+			}
+		}
+	}
 }
