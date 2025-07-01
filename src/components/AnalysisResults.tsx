@@ -104,16 +104,17 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 	const recColor = getRecommendationColor(data.recommendation);
 
 	// Format all the metrics using our utility functions
+
 	const formattedMetrics = {
-		price: data.key_metrics.price,
-		marketCap: formatCurrency(data.key_metrics.market_cap),
-		volume24h: formatCurrency(data.key_metrics.volume_24h),
-		galaxyScore: data.key_metrics.galaxy_score,
-		socialDominance: formatPercentage(data.key_metrics.social_dominance),
-		mentions: data.key_metrics.mentions,
-		engagements: data.key_metrics.engagements,
-		creators: data.key_metrics.creators,
-		altRank: data.key_metrics.creators,
+		price: data.data.key_metrics.price,
+		marketCap: data.data.key_metrics.market_cap,
+		volume24h: data.data.key_metrics.volume_24h,
+		galaxyScore: data.data.key_metrics.galaxy_score,
+		socialDominance: formatPercentage(data.data.key_metrics.social_dominance),
+		mentions: data.data.key_metrics.mentions,
+		engagements: data.data.key_metrics.engagements,
+		creators: data.data.key_metrics.creators,
+		altRank: data.data.key_metrics.creators,
 	};
 
 	return (
@@ -124,11 +125,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 					<Psychology sx={{ color: 'primary.main', fontSize: 32 }} />
 					<Box>
 						<Typography variant='h4' sx={{ fontWeight: 700 }}>
-							{data.crypto_detection.detected_crypto} {data.symbol}
-						</Typography>
-						<Typography variant='body2' color='text.secondary'>
-							Analysis completed in {(data.responseTime / 1000).toFixed(1)}s •{' '}
-							{data.toolsUsed} tools used • {data.dataPoints} data points
+							{data.data.symbol}
 						</Typography>
 					</Box>
 				</Box>
@@ -148,7 +145,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 								Recommendation
 							</Typography>
 							<Chip
-								label={data.recommendation}
+								label={data.data.recommendation}
 								sx={{
 									bgcolor: recColor.bg,
 									color: recColor.text,
@@ -176,7 +173,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							<Typography
 								variant='h3'
 								sx={{ color: '#4285F4', fontWeight: 700 }}>
-								{data.confidence}%
+								{data.data.confidence}%
 							</Typography>
 						</Card>
 					</Grid>
@@ -185,8 +182,13 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						<Card
 							elevation={0}
 							sx={{
-								bgcolor: alpha(getSentimentColor(data.social_sentiment), 0.1),
-								border: `2px solid ${getSentimentColor(data.social_sentiment)}`,
+								bgcolor: alpha(
+									getSentimentColor(data.data.social_sentiment),
+									0.1
+								),
+								border: `2px solid ${getSentimentColor(
+									data.data.social_sentiment
+								)}`,
 								textAlign: 'center',
 								p: 2,
 							}}>
@@ -200,11 +202,11 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									justifyContent: 'center',
 									gap: 1,
 								}}>
-								{getSentimentIcon(data.social_sentiment)}
+								{getSentimentIcon(data.data.social_sentiment)}
 								<Typography
 									variant='h5'
 									sx={{ textTransform: 'capitalize', fontWeight: 600 }}>
-									{data.social_sentiment}
+									{data.data.social_sentiment}
 								</Typography>
 							</Box>
 						</Card>
@@ -379,15 +381,15 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							sx={{ color: '#00C896', fontWeight: 600 }}>
 							🧠 AI Analysis Summary
 						</Typography>
-						{typeof data.ai_analysis === 'object' ? (
+						{typeof data.data.ai_analysis === 'object' ? (
 							<Stack spacing={2}>
 								<Typography
 									variant='body1'
 									sx={{ lineHeight: 1.7, fontWeight: 500 }}>
-									{data.ai_analysis.summary}
+									{data.data.ai_analysis.summary}
 								</Typography>
 
-								{data.ai_analysis.pros.length > 0 && (
+								{data.data.ai_analysis.pros.length > 0 && (
 									<Box>
 										<Typography
 											variant='subtitle2'
@@ -395,7 +397,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 											Positive Factors:
 										</Typography>
 										<Box component='ul' sx={{ pl: 2, m: 0 }}>
-											{data.ai_analysis.pros.map((pro, index) => (
+											{data.data.ai_analysis.pros.map((pro, index) => (
 												<Typography
 													key={index}
 													component='li'
@@ -408,7 +410,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									</Box>
 								)}
 
-								{data.ai_analysis.cons.length > 0 && (
+								{data.data.ai_analysis.cons.length > 0 && (
 									<Box>
 										<Typography
 											variant='subtitle2'
@@ -416,7 +418,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 											Risk Factors:
 										</Typography>
 										<Box component='ul' sx={{ pl: 2, m: 0 }}>
-											{data.ai_analysis.cons.map((con, index) => (
+											{data.data.ai_analysis.cons.map((con, index) => (
 												<Typography
 													key={index}
 													component='li'
@@ -429,7 +431,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									</Box>
 								)}
 
-								{data.ai_analysis.key_factors.length > 0 && (
+								{data.data.ai_analysis.key_factors.length > 0 && (
 									<Box>
 										<Typography
 											variant='subtitle2'
@@ -437,22 +439,24 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 											Key Factors to Monitor:
 										</Typography>
 										<Box component='ul' sx={{ pl: 2, m: 0 }}>
-											{data.ai_analysis.key_factors.map((factor, index) => (
-												<Typography
-													key={index}
-													component='li'
-													variant='body2'
-													sx={{ mb: 0.5 }}>
-													{factor}
-												</Typography>
-											))}
+											{data.data.ai_analysis.key_factors.map(
+												(factor, index) => (
+													<Typography
+														key={index}
+														component='li'
+														variant='body2'
+														sx={{ mb: 0.5 }}>
+														{factor}
+													</Typography>
+												)
+											)}
 										</Box>
 									</Box>
 								)}
 							</Stack>
 						) : (
 							<Typography variant='body1' sx={{ lineHeight: 1.7 }}>
-								{data.ai_analysis}
+								{data.data.ai_analysis}
 							</Typography>
 						)}
 					</Paper>
@@ -467,7 +471,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							📊 Detailed Reasoning
 						</Typography>
 						<Typography variant='body1' sx={{ lineHeight: 1.7 }}>
-							{data.reasoning}
+							{data.data.reasoning}
 						</Typography>
 					</Paper>
 				</Grid>
@@ -481,7 +485,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							🔍 Additional Insights
 						</Typography>
 						<Typography variant='body1' sx={{ lineHeight: 1.7 }}>
-							{data.miscellaneous}
+							{data.data.miscellaneous}
 						</Typography>
 					</Paper>
 				</Grid>
