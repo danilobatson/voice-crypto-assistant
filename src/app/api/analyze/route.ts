@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize services
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
     // MCP Client with timeout and retry
     try {
@@ -108,13 +108,13 @@ If no cryptocurrency is mentioned, respond with:
 
 Common crypto corrections:
 - cordana/cardano → Cardano (ADA)
-- etherium → Ethereum (ETH) 
+- etherium → Ethereum (ETH)
 - bit coin → Bitcoin (BTC)
 `);
 
     const cryptoDetectionResult = await model.generateContent(cryptoDetectionPrompt);
     let cryptoInfo;
-    
+
     try {
       cryptoInfo = parseAIResponse(cryptoDetectionResult.response.text());
     } catch (error) {
@@ -157,10 +157,10 @@ Common crypto corrections:
 
     // Create orchestration prompt for tool selection with strict JSON
     const orchestrationPrompt = createStrictJSONPrompt(createOrchestrationPrompt(symbol, tools));
-    
+
     const orchestrationResult = await model.generateContent(orchestrationPrompt);
     let toolCalls;
-    
+
     try {
       toolCalls = parseAIResponse(orchestrationResult.response.text());
     } catch (error) {
@@ -217,20 +217,20 @@ Focus on the actual data provided in the MCP tool results.
     // Generate AI analysis with better error handling
     const analysisResult = await model.generateContent(analysisPrompt);
     let analysis;
-    
+
     try {
       const rawResponse = analysisResult.response.text();
       console.log(`🔍 Raw AI response preview: ${rawResponse.substring(0, 100)}...`);
-      
+
       analysis = parseAIResponse(rawResponse);
       console.log('✅ Successfully parsed AI analysis');
     } catch (error) {
       console.error('❌ Analysis parsing failed:', error);
-      
+
       // Enhanced fallback analysis with actual data if available
       const hasToolData = toolResults.some(r => r.success);
       const dataStatus = hasToolData ? "with limited data" : "due to data processing issues";
-      
+
       analysis = {
         recommendation: "HOLD",
         confidence: hasToolData ? 60 : 30,
@@ -269,7 +269,7 @@ Focus on the actual data provided in the MCP tool results.
 
   } catch (error) {
     console.error('❌ API Error:', error);
-    
+
     const fallbackResponse = {
       success: false,
       error: error instanceof Error ? error.message : 'Analysis failed',

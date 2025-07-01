@@ -7,42 +7,66 @@ import {
   Typography,
   Button,
   Stack,
+  Chip,
+  alpha
 } from '@mui/material';
 import {
   TrendingUp,
+  Psychology,
+  Mic,
+  AutoAwesome,
+  Analytics
 } from '@mui/icons-material';
 
-export function HeroSection() {
+interface HeroSectionProps {
+  onStartVoiceInput?: () => void;
+}
+
+export function HeroSection({ onStartVoiceInput }: HeroSectionProps) {
   const [currentDemo, setCurrentDemo] = useState(0);
-  
+
   const demoQueries = [
     "What's the sentiment on Bitcoin?",
-    "Should I buy Ethereum?", 
+    "Should I buy Ethereum?",
     "How is Solana trending?",
-    "Analyze Cardano for me"
+    "Analyze Cardano for me",
+    "Tell me about Polygon's social metrics"
   ];
 
+  // Cycle through demo queries
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentDemo((prev) => (prev + 1) % demoQueries.length);
-    }, 4000);
+      setCurrentDemo(prev => (prev + 1) % demoQueries.length);
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
+  const handleStartVoice = () => {
+    // First scroll to the voice assistant section
+    const voiceAssistant = document.getElementById('voice-assistant');
+    if (voiceAssistant) {
+      voiceAssistant.scrollIntoView({ behavior: 'smooth' });
+
+      // Then trigger voice input after a short delay for smooth UX
+      setTimeout(() => {
+        if (onStartVoiceInput) {
+          onStartVoiceInput();
+        }
+      }, 500);
+    }
+  };
+
   return (
-    <Box 
-      sx={{ 
-        background: '#0B0B0B',
+    <Box
+      sx={{
+        background: 'linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 50%, #2A2A2A 100%)',
         color: 'white',
         py: { xs: 8, md: 12 },
         position: 'relative',
-        overflow: 'hidden',
-        minHeight: '70vh',
-        display: 'flex',
-        alignItems: 'center',
+        overflow: 'hidden'
       }}
     >
-      {/* Subtle particle effect background */}
+      {/* Animated background elements */}
       <Box
         sx={{
           position: 'absolute',
@@ -50,155 +74,168 @@ export function HeroSection() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: `radial-gradient(circle at 50% 50%, rgba(0, 200, 150, 0.03) 0%, transparent 50%),
-                      radial-gradient(circle at 20% 80%, rgba(0, 200, 150, 0.02) 0%, transparent 50%),
-                      radial-gradient(circle at 80% 20%, rgba(0, 200, 150, 0.02) 0%, transparent 50%)`,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3Ccircle cx='27' cy='7' r='1'/%3E%3Ccircle cx='47' cy='7' r='1'/%3E%3Ccircle cx='7' cy='27' r='1'/%3E%3Ccircle cx='27' cy='27' r='1'/%3E%3Ccircle cx='47' cy='27' r='1'/%3E%3Ccircle cx='7' cy='47' r='1'/%3E%3Ccircle cx='27' cy='47' r='1'/%3E%3Ccircle cx='47' cy='47' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }
+          opacity: 0.1,
+          background: `
+            radial-gradient(circle at 20% 20%, #00C896 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, #FFD700 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, #FF6B6B 0%, transparent 50%)
+          `
         }}
       />
-      
-      <Container maxWidth="lg" sx={{ position: 'relative', textAlign: 'center' }}>
-        {/* Main headline - Robinhood style */}
-        <Typography 
-          variant="h1" 
-          component="h1" 
-          sx={{ 
-            mb: 3,
-            fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4.5rem' },
-            fontWeight: 700,
-            lineHeight: 1.1,
-            letterSpacing: '-0.02em',
-            maxWidth: '900px',
-            mx: 'auto'
-          }}
-        >
-          Welcome to a new world of{' '}
-          <Box component="span" sx={{ color: '#00C896' }}>
-            crypto analysis
-          </Box>
-        </Typography>
-        
-        {/* Subtitle */}
-        <Typography 
-          variant="h5" 
-          sx={{ 
-            mb: 6, 
-            color: '#B3B3B3',
-            fontWeight: 400,
-            maxWidth: '600px',
-            mx: 'auto',
-            fontSize: { xs: '1.1rem', md: '1.3rem' }
-          }}
-        >
-          Voice-powered AI analysis with real-time social sentiment data. 
-          Get instant BUY/SELL/HOLD recommendations.
-        </Typography>
-        
-        {/* Demo query with subtle animation */}
-        <Box 
-          sx={{ 
-            mb: 6,
-            p: 3,
-            borderRadius: 2,
-            border: '1px solid #2A2A2A',
-            backgroundColor: 'rgba(26, 26, 26, 0.5)',
-            backdropFilter: 'blur(10px)',
-            maxWidth: 500,
-            mx: 'auto'
-          }}
-        >
-          <Typography variant="body2" sx={{ color: '#B3B3B3', mb: 1 }}>
-            Try saying:
-          </Typography>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              color: '#FFFFFF',
-              fontWeight: 500,
-              minHeight: 32,
-              transition: 'all 0.5s ease-in-out'
+
+      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          {/* Main Branding Header */}
+          <Typography
+            variant="h2"
+            component="h1"
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: '2.5rem', md: '4rem' },
+              mb: 2,
+              background: 'linear-gradient(135deg, #00C896 0%, #FFD700 50%, #FF6B6B 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textAlign: 'center'
             }}
           >
-            "{demoQueries[currentDemo]}"
+            Crypto AI Voice Agent
           </Typography>
-        </Box>
-        
-        {/* CTA Buttons - Robinhood style */}
-        <Stack 
-          direction={{ xs: 'column', sm: 'row' }} 
-          spacing={2} 
-          justifyContent="center"
-          sx={{ mb: 6 }}
-        >
+
+          {/* Powered by section */}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            justifyContent="center"
+            alignItems="center"
+            sx={{ mb: 4 }}
+          >
+            <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+              Powered by
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
+              <Chip
+                icon={<Analytics />}
+                label="LunarCrush MCP"
+                sx={{
+                  bgcolor: alpha('#00C896', 0.2),
+                  color: '#00C896',
+                  borderColor: '#00C896',
+                  border: '1px solid',
+                  fontWeight: 600
+                }}
+              />
+              <Chip
+                icon={<Psychology />}
+                label="Google Gemini"
+                sx={{
+                  bgcolor: alpha('#4285F4', 0.2),
+                  color: '#4285F4',
+                  borderColor: '#4285F4',
+                  border: '1px solid',
+                  fontWeight: 600
+                }}
+              />
+            </Stack>
+          </Stack>
+
+          {/* Subtitle */}
+          <Typography
+            variant="h5"
+            sx={{
+              color: 'rgba(255,255,255,0.9)',
+              mb: 4,
+              maxWidth: '600px',
+              mx: 'auto',
+              lineHeight: 1.4,
+              fontWeight: 400
+            }}
+          >
+            Real-time cryptocurrency analysis through natural voice conversation
+          </Typography>
+
+          {/* Demo query display */}
+          <Box
+            sx={{
+              mb: 6,
+              p: 3,
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'rgba(255,255,255,0.6)',
+                mb: 1,
+                textTransform: 'uppercase',
+                letterSpacing: 1
+              }}
+            >
+              Try saying:
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: '#00C896',
+                fontStyle: 'italic',
+                transition: 'all 0.3s ease',
+                minHeight: '2rem'
+              }}
+            >
+              "{demoQueries[currentDemo]}"
+            </Typography>
+          </Box>
+
+          {/* CTA Button - Now directly starts voice input */}
           <Button
             variant="contained"
             size="large"
+            onClick={handleStartVoice}
+            startIcon={<Mic />}
             sx={{
+              bgcolor: '#00C896',
+              color: 'white',
               px: 4,
-              py: 1.5,
-              fontSize: '1rem',
+              py: 2,
+              fontSize: '1.1rem',
               fontWeight: 600,
               borderRadius: 3,
-              background: '#00C896',
-              color: '#000000',
+              boxShadow: '0 8px 32px rgba(0, 200, 150, 0.3)',
               '&:hover': {
-                background: '#00B085',
+                bgcolor: '#00B085',
                 transform: 'translateY(-2px)',
+                boxShadow: '0 12px 40px rgba(0, 200, 150, 0.4)'
               },
+              transition: 'all 0.3s ease'
             }}
-            href="#voice-assistant"
           >
             Start Voice Analysis
           </Button>
-          
-          <Button
-            variant="outlined"
-            size="large"
-            sx={{
-              px: 4,
-              py: 1.5,
-              fontSize: '1rem',
-              fontWeight: 600,
-              borderRadius: 3,
-              borderColor: '#2A2A2A',
-              color: '#FFFFFF',
-              '&:hover': {
-                borderColor: '#00C896',
-                backgroundColor: 'rgba(0, 200, 150, 0.08)',
-                color: '#00C896',
-              },
-            }}
+
+          {/* Feature highlights */}
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={4}
+            justifyContent="center"
+            sx={{ mt: 8 }}
           >
-            View Demo
-          </Button>
-        </Stack>
-        
-        {/* Subtle feature highlights */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            flexWrap: 'wrap', 
-            gap: 4,
-            opacity: 0.7
-          }}
-        >
-          {['Voice Recognition', 'AI Analysis', 'Real-time Data'].map((feature, index) => (
-            <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TrendingUp sx={{ fontSize: 16, color: '#00C896' }} />
-              <Typography variant="body2" sx={{ color: '#B3B3B3', fontSize: '0.875rem' }}>
-                {feature}
-              </Typography>
-            </Box>
-          ))}
+            {[
+              { icon: <TrendingUp />, text: 'Real-time Social Sentiment' },
+              { icon: <Psychology />, text: 'AI-Powered Analysis' },
+              { icon: <AutoAwesome />, text: 'Natural Voice Interface' }
+            ].map((feature, index) => (
+              <Stack key={index} direction="row" spacing={1} alignItems="center">
+                <Box sx={{ color: '#00C896' }}>{feature.icon}</Box>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                  {feature.text}
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
         </Box>
       </Container>
     </Box>

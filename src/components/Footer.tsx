@@ -40,27 +40,27 @@ export function Footer() {
               Voice Crypto Assistant
             </Typography>
             <Typography variant="body2" sx={{ mb: 3, maxWidth: 400 }}>
-              A sophisticated voice-activated cryptocurrency analysis assistant that combines 
+              A sophisticated voice-activated cryptocurrency analysis assistant that combines
               Google Gemini AI, LunarCrush social data, and modern web technologies.
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton 
+              <IconButton
                 component={Link}
-                href="https://github.com/danilobatson" 
+                href="https://github.com/danilobatson"
                 target="_blank"
                 sx={{ color: 'grey.400', '&:hover': { color: 'white' } }}
               >
                 <GitHub />
               </IconButton>
-              <IconButton 
+              <IconButton
                 component={Link}
-                href="https://linkedin.com/in/danilo-batson" 
+                href="https://linkedin.com/in/danilo-batson"
                 target="_blank"
                 sx={{ color: 'grey.400', '&:hover': { color: 'white' } }}
               >
                 <LinkedIn />
               </IconButton>
-              <IconButton 
+              <IconButton
                 component={Link}
                 href="mailto:djbatson19@gmail.com"
                 sx={{ color: 'grey.400', '&:hover': { color: 'white' } }}
@@ -69,7 +69,7 @@ export function Footer() {
               </IconButton>
             </Box>
           </Grid>
-          
+
           {/* Technology Stack */}
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
@@ -81,8 +81,8 @@ export function Footer() {
                   key={tech.name}
                   href={tech.url}
                   target="_blank"
-                  sx={{ 
-                    color: 'grey.400', 
+                  sx={{
+                    color: 'grey.400',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -97,7 +97,7 @@ export function Footer() {
               ))}
             </Box>
           </Grid>
-          
+
           {/* Portfolio Links */}
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
@@ -109,8 +109,8 @@ export function Footer() {
                   key={link.name}
                   href={link.url}
                   target="_blank"
-                  sx={{ 
-                    color: 'grey.400', 
+                  sx={{
+                    color: 'grey.400',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -126,29 +126,29 @@ export function Footer() {
             </Box>
           </Grid>
         </Grid>
-        
+
         {/* Bottom Bar */}
         <Divider sx={{ my: 3, bgcolor: 'grey.800' }} />
-        <Box sx={{ 
-          display: 'flex', 
+        <Box sx={{
+          display: 'flex',
           flexDirection: { xs: 'column', md: 'row' },
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: 2
         }}>
           <Typography variant="body2" sx={{ color: 'grey.400' }}>
-            © 2024 Danilo Batson. Built with Next.js, Google Gemini AI, and LunarCrush MCP.
+            © 2025 Danilo Jamaal Batson. Built with Next.js, Google Gemini AI, and LunarCrush MCP.
           </Typography>
           <Box sx={{ display: 'flex', gap: 3 }}>
             <Link
-              href="https://github.com/danilobatson/voice-crypto-assistant" 
+              href="https://github.com/danilobatson/voice-crypto-assistant"
               target="_blank"
               sx={{ color: 'grey.400', textDecoration: 'none', '&:hover': { color: 'white' }, fontSize: '0.875rem' }}
             >
               View Source
             </Link>
             <Link
-              href="https://lunarcrush.com/developers" 
+              href="https://lunarcrush.com/developers"
               target="_blank"
               sx={{ color: 'grey.400', textDecoration: 'none', '&:hover': { color: 'white' }, fontSize: '0.875rem' }}
             >
