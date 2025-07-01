@@ -37,10 +37,17 @@ export function VoiceAPITest() {
   // Voice output controls
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [speechUtterance, setSpeechUtterance] = useState<SpeechSynthesisUtterance | null>(null);
-  const [speechRate, setSpeechRate] = useState(1.3); // Faster default speed
+  const [speechRate, setSpeechRate] = useState(1.3);
   const [showVolumeWarning, setShowVolumeWarning] = useState(false);
   const [hasTestedVolume, setHasTestedVolume] = useState(false);
+
+  // Auto-submit controls
+  const [processingQuery, setProcessingQuery] = useState(false);
+  const lastTranscriptRef = useRef('');
+  const transcriptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const {
     transcript,
@@ -55,12 +62,30 @@ export function VoiceAPITest() {
     setIsClient(true);
   }, []);
 
+  // Auto-submit logic when transcript stops changing
+  useEffect(() => {
+    if (listening && transcript && transcript !== lastTranscriptRef.current) {
+      lastTranscriptRef.current = transcript;
+      
+      if (transcriptTimeoutRef.current) {
+        clearTimeout(transcriptTimeoutRef.current);
+      }
+
+      // Start timeout for auto-submit (no countdown UI)
+      transcriptTimeoutRef.current = setTimeout(() => {
+        if (transcript.trim() && listening) {
+          stopListening();
+          testAPI(transcript.trim());
+        }
+      }, 3000); // 3 seconds of silence before auto-submit
+    }
+  }, [transcript, listening]);
+
   // Show volume reminder after first speech attempt
   useEffect(() => {
     if (isSpeaking && !hasTestedVolume) {
       setShowVolumeWarning(true);
       setHasTestedVolume(true);
-      // Hide warning after 5 seconds
       setTimeout(() => setShowVolumeWarning(false), 5000);
     }
   }, [isSpeaking, hasTestedVolume]);
@@ -70,8 +95,17 @@ export function VoiceAPITest() {
 
   const startListening = () => {
     resetTranscript();
+    setProcessingQuery(false);
+    lastTranscriptRef.current = '';
+    setError(null);
+    setResponse(null);
+    
+    if (transcriptTimeoutRef.current) {
+      clearTimeout(transcriptTimeoutRef.current);
+    }
+
     SpeechRecognition.startListening({
-      continuous: false,
+      continuous: true,
       language: 'en-US',
     });
   };
@@ -80,29 +114,66 @@ export function VoiceAPITest() {
     SpeechRecognition.stopListening();
   };
 
+  const stopEverything = () => {
+    // Stop listening
+    stopListening();
+    
+    // Clear timeouts
+    if (transcriptTimeoutRef.current) {
+      clearTimeout(transcriptTimeoutRef.current);
+    }
+    
+    // Abort any ongoing API request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Stop any speech
+    stopSpeaking();
+    
+    // Reset all states
+    setProcessingQuery(false);
+    setLoading(false);
+    setError(null);
+    resetTranscript();
+    lastTranscriptRef.current = '';
+    
+    console.log('🛑 Everything stopped - ready for new query');
+  };
+
   const speakText = (text: string) => {
     if (!speechSynthesisAvailable) return;
 
-    // Stop any current speech
     stopSpeaking();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = speechRate; // Use adjustable speed
+    utterance.rate = speechRate;
     utterance.pitch = 1;
-    utterance.volume = 0.9; // Slightly louder
+    utterance.volume = 0.9;
     
     utterance.onstart = () => {
       setIsSpeaking(true);
+      setIsPaused(false);
     };
     
     utterance.onend = () => {
       setIsSpeaking(false);
+      setIsPaused(false);
       setSpeechUtterance(null);
     };
     
     utterance.onerror = () => {
       setIsSpeaking(false);
+      setIsPaused(false);
       setSpeechUtterance(null);
+    };
+
+    utterance.onpause = () => {
+      setIsPaused(true);
+    };
+
+    utterance.onresume = () => {
+      setIsPaused(false);
     };
 
     setSpeechUtterance(utterance);
@@ -113,19 +184,22 @@ export function VoiceAPITest() {
     if (speechSynthesisAvailable && window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      setIsPaused(false);
       setSpeechUtterance(null);
     }
   };
 
   const pauseSpeaking = () => {
-    if (speechSynthesisAvailable && window.speechSynthesis.speaking) {
+    if (speechSynthesisAvailable && window.speechSynthesis.speaking && !isPaused) {
       window.speechSynthesis.pause();
+      setIsPaused(true);
     }
   };
 
   const resumeSpeaking = () => {
-    if (speechSynthesisAvailable && window.speechSynthesis.paused) {
+    if (speechSynthesisAvailable && isPaused) {
       window.speechSynthesis.resume();
+      setIsPaused(false);
     }
   };
 
@@ -140,8 +214,13 @@ export function VoiceAPITest() {
     }
 
     setLoading(true);
+    setProcessingQuery(true);
     setError(null);
     setResponse(null);
+
+    // Create abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       console.log('🚀 Testing API with voice query:', query);
@@ -150,7 +229,8 @@ export function VoiceAPITest() {
       const result = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query }),
+        signal: abortController.signal
       });
       const endTime = Date.now();
       
@@ -165,30 +245,29 @@ export function VoiceAPITest() {
       
       setResponse(data);
       
-      // Auto-speak if enabled
       if (autoSpeak && data.spokenResponse) {
         setTimeout(() => {
           speakText(data.spokenResponse);
-        }, 1000); // Small delay to let user see the results first
+        }, 1000);
       }
       
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log('🛑 API request was cancelled');
+        return;
+      }
       console.error('❌ API Error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
+      setProcessingQuery(false);
+      abortControllerRef.current = null;
     }
   };
 
-  const handleVoiceQuery = () => {
-    if (listening) {
-      stopListening();
-      // Process the transcript after stopping
-      setTimeout(() => {
-        if (transcript.trim()) {
-          testAPI(transcript);
-        }
-      }, 500);
+  const handleVoiceToggle = () => {
+    if (listening || loading || processingQuery) {
+      stopEverything();
     } else {
       startListening();
     }
@@ -243,7 +322,7 @@ export function VoiceAPITest() {
   return (
     <div className="card">
       <h2>🎤 Voice Crypto Assistant</h2>
-      <p>Ask about any cryptocurrency using your voice!</p>
+      <p>Ask about any cryptocurrency using your voice - hands-free!</p>
       
       {/* Voice Settings */}
       <div className="settings-panel">
@@ -279,6 +358,7 @@ export function VoiceAPITest() {
           <button
             onClick={testVolume}
             className="button"
+            disabled={loading || processingQuery}
             style={{ 
               background: '#17a2b8', 
               fontSize: '0.875rem',
@@ -306,35 +386,30 @@ export function VoiceAPITest() {
 
       {/* Volume Warning */}
       {showVolumeWarning && (
-        <div style={{ 
-          background: '#fff3cd', 
-          border: '1px solid #ffeaa7',
-          borderRadius: '6px',
-          padding: '1rem',
-          margin: '1rem 0',
-          animation: 'pulse 2s infinite'
-        }}>
+        <div className="volume-warning">
           <strong>🔊 Can't hear the audio?</strong>
           <br />• Check your device volume is turned up
           <br />• Make sure your speakers/headphones are connected
           <br />• Click "Test Volume" to verify audio is working
-          <br />• Look for the 🎵 speaking animation below when audio plays
+          <br />• Look for the 🎵 speaking animation when audio plays
         </div>
       )}
 
-      {/* Voice Input Section */}
+      {/* Voice Input Section with Stop Button */}
       <div style={{ textAlign: 'center', margin: '2rem 0' }}>
         <button 
-          onClick={handleVoiceQuery}
-          disabled={loading || !isMicrophoneAvailable}
-          className={`button ${listening ? 'danger' : ''}`}
+          onClick={handleVoiceToggle}
+          disabled={!isMicrophoneAvailable}
+          className={`button ${(listening || loading || processingQuery) ? 'danger' : ''}`}
           style={{ 
             fontSize: '1.2rem', 
             padding: '1rem 2rem',
             minWidth: '200px'
           }}
         >
-          {listening ? '🛑 Stop Listening' : '🎤 Start Voice Input'}
+          {listening ? '🛑 Stop & Cancel' : 
+           loading || processingQuery ? '🛑 Stop Analysis' : 
+           '🎤 Start Voice Input'}
         </button>
         
         {!isMicrophoneAvailable && (
@@ -346,29 +421,37 @@ export function VoiceAPITest() {
 
       {/* Voice Status */}
       {listening && (
-        <div className="status info">
+        <div className="status info listening-status">
           <strong>🎤 Listening...</strong>
-          <br />Ask about any cryptocurrency: Bitcoin, Ethereum, Solana, etc.
+          <br />Ask about any cryptocurrency. I'll auto-submit after 3 seconds of silence.
+          <br /><em>Click "Stop & Cancel" to cancel anytime.</em>
         </div>
       )}
 
-      {/* Transcript Display */}
-      {transcript && (
-        <div className="status success">
-          <strong>👂 I heard:</strong> "{transcript}"
-          <br />
-          <button 
-            onClick={() => testAPI(transcript)}
-            disabled={loading}
-            className="button"
-            style={{ marginTop: '0.5rem' }}
-          >
-            🚀 Analyze This Query
-          </button>
+      {/* Real-time Transcript Display */}
+      {listening && transcript && (
+        <div className="transcript-container">
+          <strong>👂 I'm hearing:</strong> 
+          <div style={{ 
+            marginTop: '0.5rem',
+            fontSize: '1.1rem',
+            fontWeight: '500',
+            color: '#0c5460'
+          }}>
+            "{transcript}"
+          </div>
+          <div style={{ 
+            marginTop: '0.5rem',
+            fontSize: '0.875rem',
+            color: '#6c757d',
+            fontStyle: 'italic'
+          }}>
+            Keep talking or pause for 3 seconds to auto-submit...
+          </div>
         </div>
       )}
 
-      {/* Quick Voice Test Buttons */}
+      {/* Quick Test Buttons */}
       <div style={{ marginTop: '1rem' }}>
         <p style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
           📝 Or click to test these queries:
@@ -377,7 +460,7 @@ export function VoiceAPITest() {
           <button
             key={index}
             onClick={() => testAPI(query)}
-            disabled={loading}
+            disabled={loading || listening || processingQuery}
             className="button"
             style={{ 
               background: '#6c757d', 
@@ -392,13 +475,13 @@ export function VoiceAPITest() {
       </div>
 
       {/* Loading State */}
-      {loading && (
+      {(loading || processingQuery) && (
         <div className="status info">
           <strong>⏳ Analyzing with AI...</strong>
           <br />🤖 Gemini AI is detecting the cryptocurrency...
           <br />🌙 Gathering real-time LunarCrush data...
           <br />📊 Generating structured analysis...
-          <br /><em>This takes 10-30 seconds for real analysis.</em>
+          <br /><em>Click "Stop Analysis" to cancel and start over.</em>
         </div>
       )}
 
@@ -418,6 +501,19 @@ export function VoiceAPITest() {
             <strong>✅ AI Analysis Complete!</strong>
             <br />Cryptocurrency: <strong>{response.symbol}</strong>
             <br />Tools Used: {response.toolsUsed} | Data Points: {response.dataPoints}
+            <br />
+            <button
+              onClick={stopEverything}
+              className="button"
+              style={{ 
+                background: '#28a745', 
+                fontSize: '0.875rem',
+                padding: '0.5rem 1rem',
+                marginTop: '0.5rem'
+              }}
+            >
+              🔄 New Query
+            </button>
           </div>
 
           {/* Recommendation Section */}
@@ -455,16 +551,15 @@ export function VoiceAPITest() {
             </div>
           </div>
 
-          {/* Spoken Response Section with Enhanced Audio Controls */}
+          {/* Spoken Response Section with Enhanced Controls */}
           <div className="voice-response-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, color: '#0c5460' }}>🔊 Voice Response</h3>
               
-              {/* Audio Controls */}
               <div className="audio-controls">
                 <button
                   onClick={() => speakText(response.spokenResponse)}
-                  disabled={isSpeaking}
+                  disabled={isSpeaking && !isPaused}
                   className="button"
                   style={{ 
                     background: '#17a2b8', 
@@ -472,56 +567,71 @@ export function VoiceAPITest() {
                     padding: '0.5rem 1rem'
                   }}
                 >
-                  {isSpeaking ? '🔊 Speaking...' : '▶️ Play Audio'}
+                  {isSpeaking && !isPaused ? '🔊 Speaking...' : '▶️ Play Audio'}
                 </button>
                 
+                {isSpeaking && !isPaused && (
+                  <button
+                    onClick={pauseSpeaking}
+                    className="button"
+                    style={{ 
+                      background: '#ffc107', 
+                      color: '#212529',
+                      fontSize: '0.875rem',
+                      padding: '0.5rem 1rem'
+                    }}
+                  >
+                    ⏸️ Pause
+                  </button>
+                )}
+
+                {isPaused && (
+                  <button
+                    onClick={resumeSpeaking}
+                    className="button"
+                    style={{ 
+                      background: '#28a745', 
+                      fontSize: '0.875rem',
+                      padding: '0.5rem 1rem'
+                    }}
+                  >
+                    ▶️ Resume
+                  </button>
+                )}
+                
                 {isSpeaking && (
-                  <>
-                    <button
-                      onClick={pauseSpeaking}
-                      className="button"
-                      style={{ 
-                        background: '#ffc107', 
-                        color: '#212529',
-                        fontSize: '0.875rem',
-                        padding: '0.5rem 1rem'
-                      }}
-                    >
-                      ⏸️ Pause
-                    </button>
-                    
-                    <button
-                      onClick={stopSpeaking}
-                      className="button"
-                      style={{ 
-                        background: '#dc3545', 
-                        fontSize: '0.875rem',
-                        padding: '0.5rem 1rem'
-                      }}
-                    >
-                      ⏹️ Stop
-                    </button>
-                  </>
+                  <button
+                    onClick={stopSpeaking}
+                    className="button"
+                    style={{ 
+                      background: '#dc3545', 
+                      fontSize: '0.875rem',
+                      padding: '0.5rem 1rem'
+                    }}
+                  >
+                    ⏹️ Stop
+                  </button>
                 )}
               </div>
             </div>
             
-            {/* Enhanced Speaking Status with Animation */}
             {isSpeaking && (
               <div className="speaking-indicator">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div className="audio-wave">
-                    🎵📢🔊
-                  </div>
+                  <div className="audio-wave">🎵📢🔊</div>
                   <div>
-                    <strong>Audio is playing at {speechRate}x speed!</strong>
+                    <strong>
+                      {isPaused ? 
+                        `Audio paused at ${speechRate}x speed` : 
+                        `Audio is playing at ${speechRate}x speed!`
+                      }
+                    </strong>
                     <br />Can't hear it? Check your volume or use the controls above.
                   </div>
                 </div>
               </div>
             )}
             
-            {/* Spoken Response Text */}
             <div className="voice-text">
               {response.spokenResponse}
             </div>
@@ -532,7 +642,7 @@ export function VoiceAPITest() {
               color: '#6c757d',
               fontStyle: 'italic'
             }}>
-              💡 This is the text that gets read aloud at {speechRate}x speed. You can read it yourself or use the audio controls above.
+              💡 This text was read aloud at {speechRate}x speed. Use audio controls to replay or pause/resume.
             </div>
           </div>
 
@@ -604,23 +714,25 @@ export function VoiceAPITest() {
         borderRadius: '6px',
         fontSize: '0.875rem'
       }}>
-        <strong>🎯 Voice Features:</strong>
-        <br />• <strong>Speed Control:</strong> Adjust speech speed from 0.5x to 2.0x
-        <br />• <strong>Volume Test:</strong> Click "Test Volume" to check audio
-        <br />• <strong>Visual Feedback:</strong> Look for 🎵📢🔊 when audio plays
-        <br />• <strong>Auto-speak:</strong> Toggle on/off to automatically hear responses
-        <br />• <strong>Full Control:</strong> Play, pause, or stop audio anytime
+        <strong>🎯 Enhanced Voice Features:</strong>
+        <br />• <strong>Auto-Submit:</strong> Stop talking for 3 seconds → auto-submit (no countdown UI)
+        <br />• <strong>Stop Anytime:</strong> Cancel during listening, analysis, or playback
+        <br />• <strong>Audio Resume:</strong> Pause and resume audio from the same spot
+        <br />• <strong>New Query:</strong> Quick reset button after each analysis
+        <br />• <strong>Hands-Free:</strong> Minimal clicking required
         <br /><br />
-        <strong>🎙️ Try saying:</strong>
-        <br />• "What's the sentiment on Bitcoin?"
-        <br />• "Should I buy Ethereum now?"
-        <br />• "How is Solana performing today?"
-        <br />• "Give me analysis on Cardano"
+        <strong>🎙️ Usage Flow:</strong>
+        <br />1. Click "🎤 Start Voice Input" once
+        <br />2. Ask your question naturally
+        <br />3. Stop talking - auto-submits after 3 seconds of silence
+        <br />4. Use "Stop Analysis" to cancel if needed
+        <br />5. Control audio playback (play/pause/resume/stop)
+        <br />6. Click "New Query" to start fresh
         <br /><br />
-        <strong>🔊 Audio Tips:</strong>
-        <br />• Default speed is 1.3x (faster than normal)
-        <br />• Watch for the speaking animation when audio plays
-        <br />• Test your volume first if unsure about audio
+        <strong>🔊 Audio Controls:</strong>
+        <br />• Play → Pause → Resume → Stop (resume picks up where paused)
+        <br />• Adjust speed while playing
+        <br />• Stop analysis anytime to start over
       </div>
     </div>
   );

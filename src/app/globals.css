@@ -288,3 +288,72 @@ input[type="range"]::-moz-range-thumb {
     justify-content: center;
   }
 }
+
+/* Auto-Submit Countdown Styling */
+.countdown-container {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  text-align: center;
+  animation: countdownPulse 1s infinite;
+}
+
+@keyframes countdownPulse {
+  0% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+  }
+  50% { 
+    transform: scale(1.02);
+    box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+  }
+  100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+  }
+}
+
+/* Real-time transcript styling */
+.transcript-container {
+  background: linear-gradient(135deg, #e8f4f8, #f0f9ff);
+  border: 1px solid #bee5eb;
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: transcriptGlow 2s infinite;
+}
+
+@keyframes transcriptGlow {
+  0% { border-color: #bee5eb; }
+  50% { border-color: #17a2b8; }
+  100% { border-color: #bee5eb; }
+}
+
+/* Enhanced volume warning */
+.volume-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: volumeWarning 3s infinite;
+}
+
+@keyframes volumeWarning {
+  0% { background-color: #fff3cd; }
+  50% { background-color: #ffeaa7; }
+  100% { background-color: #fff3cd; }
+}
+
+/* Listening status animation */
+.listening-status {
+  animation: listeningPulse 2s infinite;
+}
+
+@keyframes listeningPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
