@@ -3,14 +3,16 @@ frontend:
   phases:
     preBuild:
       commands:
-        - echo "Installing dependencies..."
-        - npm ci --include=dev
-        - echo "Verifying TypeScript installation..."
-        - npx tsc --version
+        - echo "Node version:" && node --version
+        - echo "Installing Yarn..."
+        - npm install -g yarn
+        - echo "Yarn version:" && yarn --version
+        - rm -rf node_modules yarn.lock
+        - yarn install --frozen-lockfile false
     build:
       commands:
-        - echo "Building Next.js application..."
-        - npm run build
+        - echo "Building with Yarn..."
+        - yarn build
   artifacts:
     baseDirectory: .next
     files:
@@ -19,3 +21,4 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
+      - .yarn/cache/**/*

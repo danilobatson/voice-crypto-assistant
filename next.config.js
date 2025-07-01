@@ -4,19 +4,18 @@ const path = require('path');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	reactStrictMode: true,
-	typescript: {
-		// Skip TypeScript type checking during build for deployment
-		ignoreBuildErrors: true,
-	},
-	eslint: {
-		// Skip ESLint during build for deployment
-		ignoreDuringBuilds: true,
-	},
 	experimental: {
 		esmExternals: true,
 	},
 	env: {
 		CUSTOM_KEY: process.env.CUSTOM_KEY,
+	},
+	// Disable TypeScript and ESLint checking during build
+	typescript: {
+		ignoreBuildErrors: true,
+	},
+	eslint: {
+		ignoreDuringBuilds: true,
 	},
 	webpack: (config) => {
 		// Add path aliases for webpack

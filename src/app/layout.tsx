@@ -1,7 +1,8 @@
+import 'regenerator-runtime/runtime';
 import type { Metadata } from 'next';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import theme from '@/lib/theme';
 import './globals.css';
 
