@@ -37,7 +37,13 @@ export function HeroSection({ onStartVoiceInput }: HeroSectionProps) {
 	useEffect(() => {
 		const loadDynamicQueries = async () => {
 			try {
-				const dynamicQueries = await generateDynamicDemoQueries(5);
+				const dynamicQueries = [
+					"What's the sentiment on the top crypto?",
+					'How are the markets trending today?',
+					"What's the most talked about coin?",
+					'Show me social sentiment analysis',
+					'Which cryptocurrencies are gaining momentum?',
+				];
 				setDemoQueries(dynamicQueries);
 			} catch (error) {
 				console.warn('Failed to load dynamic queries, using fallbacks:', error);

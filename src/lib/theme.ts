@@ -5,8 +5,8 @@ const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#00C896', // Actual Robinhood green (more muted)
-      light: '#00D4AA', 
+      main: '#00C896',
+      light: '#00D4AA',
       dark: '#00B085',
       contrastText: '#000000',
     },
@@ -32,7 +32,7 @@ const theme = createTheme({
       dark: '#E09600',
     },
     background: {
-      default: '#0B0B0B', // Very dark like Robinhood
+      default: '#0B0B0B',
       paper: '#1A1A1A',   // Subtle card backgrounds
     },
     text: {
@@ -123,7 +123,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          borderRadius: 24, // Robinhood uses more rounded buttons
+          borderRadius: 24, 
           padding: '12px 24px',
           fontSize: '0.875rem',
           fontWeight: 600,
