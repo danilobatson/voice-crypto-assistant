@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
+// Ensure we use Node.js runtime for proper streaming support
+export const runtime = 'nodejs';
 // Add request timeout for production
 export const maxDuration = 60; // Amplify allows up to 60 seconds
 
@@ -42,8 +44,9 @@ export async function POST(request: NextRequest) {
 			return new Response('{"error": "Query is required"}\n', {
 				status: 400,
 				headers: {
-					'Content-Type': 'application/json',
-					'Cache-Control': 'no-cache',
+					'Content-Type': 'text/plain; charset=utf-8',
+					'Cache-Control': 'no-cache, no-store, must-revalidate',
+					'X-Content-Type-Options': 'nosniff',
 					'Access-Control-Allow-Origin': '*',
 					'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -57,7 +60,12 @@ export async function POST(request: NextRequest) {
 				const encoder = new TextEncoder();
 
 				const send = (data: any) => {
-					controller.enqueue(encoder.encode(`${JSON.stringify(data)}\n`));
+					const chunk = encoder.encode(`${JSON.stringify(data)}\n`);
+					controller.enqueue(chunk);
+					// Force flush to ensure immediate delivery in production
+					if (typeof (controller as any).flush === 'function') {
+						(controller as any).flush();
+					}
 				};
 
 				const sendError = (error: string) => {
@@ -323,8 +331,11 @@ export async function POST(request: NextRequest) {
 
 		return new Response(stream, {
 			headers: {
-				'Content-Type': 'application/json',
-				'Cache-Control': 'no-cache',
+				'Content-Type': 'text/plain; charset=utf-8',
+				'Cache-Control': 'no-cache, no-store, must-revalidate',
+				'Connection': 'keep-alive',
+				'Transfer-Encoding': 'chunked',
+				'X-Content-Type-Options': 'nosniff',
 				'Access-Control-Allow-Origin': '*',
 				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 				'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -339,8 +350,10 @@ export async function POST(request: NextRequest) {
 			{
 				status: 500,
 				headers: {
-					'Content-Type': 'application/json',
-					'Cache-Control': 'no-cache',
+					'Content-Type': 'text/plain; charset=utf-8',
+					'Cache-Control': 'no-cache, no-store, must-revalidate',
+					'Connection': 'keep-alive',
+					'X-Content-Type-Options': 'nosniff',
 					'Access-Control-Allow-Origin': '*',
 					'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 					'Access-Control-Allow-Headers': 'Content-Type, Authorization',

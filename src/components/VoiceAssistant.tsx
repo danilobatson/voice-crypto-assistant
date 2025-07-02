@@ -359,10 +359,10 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 								setProgressMessage('Analysis complete!');
 
 								// Auto-speak the response if enabled
-								if (autoSpeak && data.speak) {
+                if (autoSpeak && data?.data?.ai_analysis?.summary) {
 									console.log('🔊 Auto-speaking response');
 									try {
-										await speak(data.speak);
+										await speak(data?.data?.ai_analysis?.summary);
 									} catch (speechErr) {
 										console.error('Speech error:', speechErr);
 									}

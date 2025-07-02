@@ -6,6 +6,8 @@ const nextConfig = {
 	reactStrictMode: true,
 	experimental: {
 		esmExternals: true,
+		// Ensure runtime allows streaming
+		serverComponentsExternalPackages: [],
 	},
 	// Optimizations for AWS Amplify
 	trailingSlash: false,
@@ -42,6 +44,14 @@ const nextConfig = {
 					{
 						key: 'Access-Control-Allow-Headers',
 						value: 'Content-Type, Authorization',
+					},
+					{
+						key: 'Cache-Control',
+						value: 'no-cache, no-store, must-revalidate',
+					},
+					{
+						key: 'X-Content-Type-Options',
+						value: 'nosniff',
 					},
 				],
 			},
