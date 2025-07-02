@@ -59,6 +59,7 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 	// State management
 	const [mounted, setMounted] = useState(false);
 	const [isProcessing, setIsProcessing] = useState(false);
+	const [progressMessage, setProgressMessage] = useState<string>('');
 	const [lastResponse, setLastResponse] = useState<string>('');
 	const [analysisData, setAnalysisData] = useState<any>(null);
 	const [queryHistory, setQueryHistory] = useState<string[]>([]);
@@ -302,6 +303,7 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 		console.log('📝 Processing query:', query);
 		setIsProcessing(true);
 		setAnalysisData(null);
+		setProgressMessage('Initializing analysis...');
 
 		// Save to history
 		const newHistory = [query, ...queryHistory.slice(0, 9)];
@@ -322,24 +324,63 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 				throw new Error(`Analysis failed: ${response.status}`);
 			}
 
-			const data = await response.json();
-			console.log('📊 API Response:', data);
+			// Handle streaming response
+			const reader = response.body?.getReader();
+			if (!reader) {
+				throw new Error('No reader available');
+			}
 
-			if (data.success) {
-				setAnalysisData(data);
-				setLastResponse(data.spokenResponse);
+			const decoder = new TextDecoder();
+			let finalData = null;
 
-				// Auto-speak the response if enabled
-				if (autoSpeak && data.spokenResponse) {
-					console.log('🔊 Auto-speaking response');
-					try {
-						await speak(data.spokenResponse);
-					} catch (speechErr) {
-						console.error('Speech error:', speechErr);
+			try {
+				while (true) {
+					const { done, value } = await reader.read();
+
+					if (done) {
+						console.log('🏁 Stream completed');
+						break;
+					}
+
+					const chunk = decoder.decode(value, { stream: true });
+					const lines = chunk.split('\n').filter((line) => line.trim());
+
+					for (const line of lines) {
+						try {
+							const data = JSON.parse(line);
+
+							if (data.type === 'progress') {
+								setProgressMessage(data.message);
+								console.log(`📊 Progress: ${data.message}`);
+							} else if (data.type === 'complete') {
+								console.log('📊 Analysis Complete:', data.data);
+								finalData = data.data;
+								setAnalysisData(finalData);
+								setProgressMessage('Analysis complete!');
+
+								// Auto-speak the response if enabled
+								if (autoSpeak && data.speak) {
+									console.log('🔊 Auto-speaking response');
+									try {
+										await speak(data.speak);
+									} catch (speechErr) {
+										console.error('Speech error:', speechErr);
+									}
+								}
+							} else if (data.type === 'error') {
+								throw new Error(data.message || 'Analysis failed');
+							}
+						} catch {
+							console.warn('⚠️ Could not parse line:', line);
+						}
 					}
 				}
-			} else {
-				throw new Error(data.error || 'Analysis failed');
+			} finally {
+				reader.releaseLock();
+			}
+
+			if (!finalData) {
+				throw new Error('No analysis data received');
 			}
 		} catch (error: any) {
 			if (error.name === 'AbortError') {
@@ -361,6 +402,7 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 			}
 		} finally {
 			setIsProcessing(false);
+			setProgressMessage('');
 			setAbortController(null);
 		}
 	};
@@ -400,7 +442,7 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 	return (
 		<Box
 			id='voice-assistant'
-			sx={{ maxWidth: '1200px', mx: 'auto', p: { xs: 2, md: 3 } }}>
+			sx={{ maxWidth: '1800px', mx: 'auto', p: { xs: 2, md: 3 } }}>
 			{/* Main Control Panel */}
 			<Card elevation={0} sx={{ mb: 4, p: { xs: 3, md: 5 } }}>
 				<Box sx={{ textAlign: 'center', mb: 5 }}>
@@ -834,7 +876,10 @@ export const VoiceAssistant = forwardRef<VoiceAssistantRef>((_, ref) => {
 			</Card>
 
 			{/* Enhanced Progress Loading */}
-			<AnalysisProgress isAnalyzing={isProcessing} />
+			<AnalysisProgress
+				isAnalyzing={isProcessing}
+				progressMessage={progressMessage}
+			/>
 
 			{/* Enhanced Analysis Results */}
 			{analysisData && <AnalysisResults data={analysisData} />}

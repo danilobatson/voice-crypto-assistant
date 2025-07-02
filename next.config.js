@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const path = require('path');
+import path from 'path';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -22,7 +22,7 @@ const nextConfig = {
 		// Add path aliases for webpack
 		config.resolve.alias = {
 			...config.resolve.alias,
-			'@': path.resolve(__dirname, 'src'),
+			'@': path.resolve(process.cwd(), 'src'),
 		};
 		return config;
 	},
@@ -49,4 +49,4 @@ const nextConfig = {
 	},
 };
 
-module.exports = nextConfig;
+export default nextConfig;

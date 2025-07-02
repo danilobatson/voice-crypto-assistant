@@ -25,7 +25,6 @@ import {
 import {
 	formatCurrency,
 	formatPercentage,
-	formatLargeNumber,
 	formatCount,
 } from '@/lib/formatters';
 
@@ -110,15 +109,15 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 
 	// Format all the metrics using our utility functions for better readability
 	const formattedMetrics = {
-		price: `$${data.data.key_metrics.price}`,
-		marketCap: formatCurrency(data.data.key_metrics.market_cap),
-		volume24h: formatCurrency(data.data.key_metrics.volume_24h),
-		galaxyScore: data.data.key_metrics.galaxy_score,
-		socialDominance: formatPercentage(data.data.key_metrics.social_dominance),
-		mentions: formatCount(data.data.key_metrics.mentions),
-		engagements: formatCount(data.data.key_metrics.engagements),
-		creators: formatCount(data.data.key_metrics.creators),
-		altRank: data.data.key_metrics.alt_rank,
+		price: `$${data.key_metrics.price}`,
+		marketCap: formatCurrency(data.key_metrics.market_cap),
+		volume24h: formatCurrency(data.key_metrics.volume_24h),
+		galaxyScore: data.key_metrics.galaxy_score,
+		socialDominance: formatPercentage(data.key_metrics.social_dominance),
+		mentions: formatCount(data.key_metrics.mentions),
+		engagements: formatCount(data.key_metrics.engagements),
+		creators: formatCount(data.key_metrics.creators),
+		altRank: data.key_metrics.alt_rank,
 	};
 
 	return (
@@ -129,14 +128,14 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 					<Psychology sx={{ color: 'primary.main', fontSize: 32 }} />
 					<Box>
 						<Typography variant='h4' sx={{ fontWeight: 700 }}>
-							{data.data.symbol}
+							{data.symbol}
 						</Typography>
 					</Box>
 				</Box>
 
 				{/* Key Decision Metrics */}
-				<Grid container spacing={3} sx={{ mt: 2 }} gap={3}>
-					<Grid size={{ xs: 12, md: 4 }}>
+				<Grid container spacing={3} sx={{ mt: 2 }}>
+					<Grid xs={12} md={4}>
 						<Card
 							elevation={0}
 							sx={{
@@ -157,7 +156,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 								Recommendation
 							</Typography>
 							<Chip
-								label={data.data.recommendation}
+								label={data.recommendation}
 								sx={{
 									bgcolor: recColor.bg,
 									color: recColor.text,
@@ -171,7 +170,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, md: 4 }}>
+					<Grid xs={12} md={4}>
 						<Card
 							elevation={0}
 							sx={{
@@ -194,22 +193,17 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							<Typography
 								variant='h3'
 								sx={{ color: '#4285F4', fontWeight: 700 }}>
-								{data.data.confidence}%
+								{data.confidence}%
 							</Typography>
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, md: 4 }}>
+					<Grid xs={12} md={4}>
 						<Card
 							elevation={0}
 							sx={{
-								bgcolor: alpha(
-									getSentimentColor(data.data.social_sentiment),
-									0.1
-								),
-								border: `2px solid ${getSentimentColor(
-									data.data.social_sentiment
-								)}`,
+								bgcolor: alpha(getSentimentColor(data.social_sentiment), 0.1),
+								border: `2px solid ${getSentimentColor(data.social_sentiment)}`,
 								p: 3,
 								textAlign: 'center',
 								height: 140,
@@ -231,11 +225,11 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									justifyContent: 'center',
 									gap: 1,
 								}}>
-								{getSentimentIcon(data.data.social_sentiment)}
+								{getSentimentIcon(data.social_sentiment)}
 								<Typography
 									variant='h5'
 									sx={{ textTransform: 'capitalize', fontWeight: 600 }}>
-									{data.data.social_sentiment}
+									{data.social_sentiment}
 								</Typography>
 							</Box>
 						</Card>
@@ -244,9 +238,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 			</Paper>
 
 			{/* Key Metrics Section with Formatted Numbers */}
-			<Paper
-				elevation={1}
-				sx={{ p: 4, borderRadius: 3, mb: 3,  }}>
+			<Paper elevation={1} sx={{ p: 4, borderRadius: 3, mb: 3 }}>
 				<Typography
 					variant='h5'
 					gutterBottom
@@ -256,7 +248,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 				</Typography>
 
 				<Grid container spacing={3}>
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -274,7 +266,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -292,7 +284,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -310,7 +302,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -328,7 +320,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -346,7 +338,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -364,7 +356,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -382,7 +374,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 						</Card>
 					</Grid>
 
-					<Grid size={{ xs: 12, sm: 6, md: 3 }}>
+					<Grid xs={12} sm={6} md={3}>
 						<Card elevation={0} sx={{ bgcolor: 'background.default', p: 2 }}>
 							<Stack
 								direction='row'
@@ -403,24 +395,26 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 			</Paper>
 
 			{/* Analysis Sections */}
-			<Grid container >
-				<Grid size={{ xs: 12, md: 6 }}>
-					<Paper elevation={1} sx={{ p: 4, borderRadius: 3, mb: 3 }}>
+			<Grid container sx={{ justifyContent: 'space-between' }}>
+				<Grid xs={12} md={7}>
+					<Paper
+						elevation={1}
+						sx={{ p: 4, borderRadius: 3, mb: 3, height: '100%' }}>
 						<Typography
 							variant='h6'
 							gutterBottom
 							sx={{ color: '#00C896', fontWeight: 600 }}>
 							🧠 AI Analysis Summary
 						</Typography>
-						{typeof data.data.ai_analysis === 'object' ? (
+						{typeof data.ai_analysis === 'object' ? (
 							<Stack spacing={2}>
 								<Typography
 									variant='body1'
 									sx={{ lineHeight: 1.7, fontWeight: 500 }}>
-									{data.data.ai_analysis.summary}
+									{data.ai_analysis.summary}
 								</Typography>
 
-								{data.data.ai_analysis.pros.length > 0 && (
+								{data.ai_analysis.pros.length > 0 && (
 									<Box>
 										<Typography
 											variant='subtitle2'
@@ -428,7 +422,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 											Positive Factors:
 										</Typography>
 										<Box component='ul' sx={{ pl: 2, m: 0 }}>
-											{data.data.ai_analysis.pros.map((pro, index) => (
+											{data.ai_analysis.pros.map((pro, index) => (
 												<Typography
 													key={index}
 													component='li'
@@ -441,7 +435,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									</Box>
 								)}
 
-								{data.data.ai_analysis.cons.length > 0 && (
+								{data.ai_analysis.cons.length > 0 && (
 									<Box>
 										<Typography
 											variant='subtitle2'
@@ -449,7 +443,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 											Risk Factors:
 										</Typography>
 										<Box component='ul' sx={{ pl: 2, m: 0 }}>
-											{data.data.ai_analysis.cons.map((con, index) => (
+											{data.ai_analysis.cons.map((con, index) => (
 												<Typography
 													key={index}
 													component='li'
@@ -462,7 +456,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 									</Box>
 								)}
 
-								{data.data.ai_analysis.key_factors.length > 0 && (
+								{data.ai_analysis.key_factors.length > 0 && (
 									<Box>
 										<Typography
 											variant='subtitle2'
@@ -470,31 +464,29 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 											Key Factors to Monitor:
 										</Typography>
 										<Box component='ul' sx={{ pl: 2, m: 0 }}>
-											{data.data.ai_analysis.key_factors.map(
-												(factor, index) => (
-													<Typography
-														key={index}
-														component='li'
-														variant='body2'
-														sx={{ mb: 0.5 }}>
-														{factor}
-													</Typography>
-												)
-											)}
+											{data.ai_analysis.key_factors.map((factor, index) => (
+												<Typography
+													key={index}
+													component='li'
+													variant='body2'
+													sx={{ mb: 0.5 }}>
+													{factor}
+												</Typography>
+											))}
 										</Box>
 									</Box>
 								)}
 							</Stack>
 						) : (
 							<Typography variant='body1' sx={{ lineHeight: 1.7 }}>
-								{data.data.ai_analysis}
+								{data.ai_analysis}
 							</Typography>
 						)}
 					</Paper>
 				</Grid>
 
-				<Grid size={{ xs: 12, md: 6 }}>
-					<Paper elevation={1} sx={{ p: 4, borderRadius: 3, height: '100%' }}>
+				<Grid xs={12} md={4.75}>
+					<Paper elevation={1} sx={{ p: 4, borderRadius: 3 }}>
 						<Typography
 							variant='h6'
 							gutterBottom
@@ -502,7 +494,7 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
 							📊 Detailed Reasoning
 						</Typography>
 						<Typography variant='body1' sx={{ lineHeight: 1.7 }}>
-							{data.data.reasoning}
+							{data.reasoning}
 						</Typography>
 					</Paper>
 				</Grid>

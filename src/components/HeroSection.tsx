@@ -17,7 +17,6 @@ import {
 	AutoAwesome,
 	Analytics,
 } from '@mui/icons-material';
-import { generateDynamicDemoQueries } from '@/lib/dynamic-content';
 
 interface HeroSectionProps {
 	onStartVoiceInput?: () => void;
